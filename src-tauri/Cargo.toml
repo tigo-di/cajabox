@@ -1,6 +1,6 @@
 [package]
 name = "manabox"
-version = "0.9.1"
+version = "0.10.0"
 description = "Gerenciamento de conteúdo"
 authors = ["Tiago Dias <tigo@webdeleve.net>"]
 license = "GPL-3.0-or-later"
