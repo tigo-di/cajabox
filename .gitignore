@@ -27,3 +27,6 @@ dist-ssr
 off/tasks/
 off/steps/
 off/concluidos/
+
+# AppImage gerado por scripts/build-appimage.sh
+release/

@@ -6,6 +6,8 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 # Tecnologia
 - Tauri (backend Rust, interface HTML/JS)
 - Sistema operacional: Ubuntu; distribuído como AppImage
+- Ícone: `python3 scripts/icon.py` (baú em pixel art; ver instruções no script)
+- Versão: `package.json` (lida pelo tauri.conf.json); `src-tauri/Cargo.toml` acompanha
 - Licença: GPL-3.0-or-later (LICENSE); autor Tiago Dias <tiago@webdeleve.net>
 - Desenvolvimento no host (Rust + libs do Tauri instalados localmente)
 - Build do AppImage dentro de container Docker com Ubuntu 22.04 (glibc antiga = AppImage compatível com mais sistemas)
@@ -14,6 +16,8 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 - `pnpm tauri dev` — roda o app em modo desenvolvimento
 - `cd src-tauri && cargo test` — testes do núcleo
 - `pnpm build` — checagem de tipos e build do frontend
+- `scripts/build-appimage.sh` — gera o AppImage no Docker (Ubuntu 22.04) em `release/`
+- `scripts/install.sh` — instala o AppImage no menu do usuário; `--uninstall` remove
 - Node 22.12.0 fixado no projeto via asdf (`.tool-versions`); Vite 8 exige Node ≥ 20.19
 
 ## Código (src-tauri/src)

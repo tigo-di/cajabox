@@ -4,6 +4,15 @@ Gerenciamento de conteúdo (news, vídeos, stories etc.) para Ubuntu.
 
 Lista os arquivos de pastas cadastradas e permite filtrá-los pelos termos e datas presentes nos nomes, conforme um índice editável dentro do programa. Também renomeia, recorta, cola e envia arquivos para a lixeira.
 
+## Instalar
+
+1. Gere o AppImage (precisa de Docker): `scripts/build-appimage.sh` — o arquivo fica em `release/`.
+2. Instale para o seu usuário: `scripts/install.sh` — copia o AppImage para `~/.local/bin` e cria a entrada no menu de aplicativos.
+
+Para atualizar, gere e instale de novo. Para remover: `scripts/install.sh --uninstall` (a configuração em `~/.config/manabox` é mantida).
+
+O AppImage roda em Ubuntu 22.04 ou mais novo e precisa do pacote `libfuse2`.
+
 ## Desenvolvimento
 
 - `pnpm tauri dev` — roda o app

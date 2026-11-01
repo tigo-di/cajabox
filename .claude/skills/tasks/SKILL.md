@@ -135,7 +135,7 @@ tasks: <nome-da-task> (concluída|planejada), ...
 - **Branch por task:** ao gravar os steps, crie a partir de `main` o branch `task/<nome-da-task>` (ex.: `task/261031-fechar-sobre`) e trabalhe nele até concluir a task.
 - **Commit por step:** ao concluir um step (verificação feita e aprovada pelo usuário), faça um commit no branch da task com o código do step. Mensagem: `<Título do step> (step NN)`. Steps e tasks são ignorados pelo git; o commit leva só o código.
 - **Conclusão da task:** depois de gravar o histórico, faça o commit do arquivo de `off/historico/` no branch e o merge em `main` com `--no-ff` (mensagem `Task <nome-da-task>`), mantendo o branch.
-- **Tag por release:** quando o usuário decidir fechar uma versão, crie em `main` a tag anotada `vX.Y.Z` (semver: X mudança incompatível, Y função nova, Z correção). Sugira a versão; não crie tag sem o OK.
+- **Tag por release:** quando o usuário decidir fechar uma versão, crie em `main` a tag anotada `vX.Y.Z` (semver: X mudança incompatível, Y função nova, Z correção). Sugira a versão; não crie tag sem o OK. Antes da tag, atualize a versão em `package.json` (fonte, lida pelo `tauri.conf.json`) e em `src-tauri/Cargo.toml` (+ `Cargo.lock`) e faça em `main` o commit `Versão X.Y.Z`.
 - Antes de cada commit, confira `git status` para não incluir arquivos indevidos (segredos, builds, arquivos pessoais).
 
 ## Regras
