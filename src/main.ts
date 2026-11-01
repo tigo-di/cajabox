@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { ask, message, open } from "@tauri-apps/plugin-dialog";
 
+import { openAbout } from "./about";
 import { $, button, el, promptText } from "./dom";
 import { emptyFilters, isEmpty, matches, monthsOf, termKey, yearsOf, type YearFilter } from "./filter";
 import { openFoldersEditor } from "./folders-editor";
@@ -446,6 +447,7 @@ async function init() {
   $("#open-settings").addEventListener("click", () => {
     if (state) openSettings(state, applyState);
   });
+  $("#open-about").addEventListener("click", openAbout);
   $("#quit").addEventListener("click", quit);
   $("#clear-filters").addEventListener("click", () => {
     filters = emptyFilters();

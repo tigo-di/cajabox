@@ -490,6 +490,24 @@ dialog.editor .hint {
 
 /* Configurações */
 
+dialog.about {
+  width: min(480px, calc(100vw - 48px));
+}
+
+dialog.about p {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+dialog.about .about-version {
+  color: var(--muted);
+}
+
+dialog.about button.link {
+  padding: 0;
+  font-size: inherit;
+}
+
 dialog.settings {
   width: min(640px, calc(100vw - 48px));
 }

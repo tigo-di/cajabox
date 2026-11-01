@@ -6,6 +6,7 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 # Tecnologia
 - Tauri (backend Rust, interface HTML/JS)
 - Sistema operacional: Ubuntu; distribuído como AppImage
+- Licença: GPL-3.0-or-later (LICENSE); autor Tiago Dias <tiago@webdeleve.net>
 - Desenvolvimento no host (Rust + libs do Tauri instalados localmente)
 - Build do AppImage dentro de container Docker com Ubuntu 22.04 (glibc antiga = AppImage compatível com mais sistemas)
 
@@ -28,6 +29,7 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 - `main.ts` — pastas, filtros, listagem, seleção, operações e atalhos
 - `filter.ts` — lógica pura dos filtros
 - `folders-editor.ts` / `index-editor.ts` / `settings.ts` — diálogos de edição e configurações
+- `about.ts` — diálogo "Sobre" (créditos, versão, licença)
 - `dom.ts` — helpers de DOM (textos sempre via textContent)
 - `types.ts` — tipos espelhando as structs do Rust
 
