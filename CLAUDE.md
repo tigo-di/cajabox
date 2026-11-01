@@ -74,6 +74,7 @@ Uma pasta por linha: `nome|descrição|caminho absoluto`
 - Termos selecionados na mesma seção: E (arquivo precisa ter todos)
 - Entre seções: E
 - Datas: filtro por ano e mês
+- Busca: palavras no nome do arquivo (todas), sem diferenciar maiúsculas e acentos; soma-se aos filtros
 
 # Ordenação
 - Clique no título "Nome" ou "Data"; clicar de novo inverte; escolha lembrada

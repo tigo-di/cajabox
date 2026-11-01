@@ -92,6 +92,7 @@ function countLabel(shown: number, total: number): string {
 function renderHeader(shown: number | null) {
   const header = $("#folder-header");
   header.replaceChildren();
+  $("#searchbar").hidden = !current;
   if (!current) return;
   header.append(
     el(
@@ -209,7 +210,7 @@ function renderFiles() {
     return;
   }
   if (visible.length === 0) {
-    renderMessage("Nenhum arquivo corresponde aos filtros.");
+    renderMessage("Nenhum arquivo corresponde aos filtros ou à busca.");
     return;
   }
   const body = el("tbody");
@@ -432,6 +433,13 @@ function onKeyDown(event: KeyboardEvent) {
     return;
   }
   const target = event.target as HTMLElement;
+  if (current && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f" && !document.querySelector("dialog[open]")) {
+    event.preventDefault();
+    const search = $<HTMLInputElement>("#search");
+    search.focus();
+    search.select();
+    return;
+  }
   if (!current || document.querySelector("dialog[open]") || target.closest("input, select, textarea")) return;
   const ctrl = event.ctrlKey || event.metaKey;
   const key = event.key.toLowerCase();
@@ -472,6 +480,8 @@ function renderFilters() {
   const panel = $("#filters");
   panel.replaceChildren();
   $("#clear-filters").hidden = isEmpty(filters);
+  const search = $<HTMLInputElement>("#search");
+  if (search.value !== filters.search) search.value = filters.search; // ex.: após "Limpar filtros"
   const sections = state?.index.sections ?? [];
   if (sections.length === 0) {
     panel.append(el("p", { class: "hint" }, "Índice vazio. Use “Editar índice” para criar seções e termos."));
@@ -573,6 +583,22 @@ async function init() {
   });
   $("#open-about").addEventListener("click", openAbout);
   $("#quit").addEventListener("click", quit);
+  const search = $<HTMLInputElement>("#search");
+  search.addEventListener("input", () => {
+    filters.search = search.value;
+    update();
+  });
+  search.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    if (search.value) {
+      search.value = "";
+      filters.search = "";
+      update();
+    } else {
+      search.blur(); // volta aos atalhos da lista
+    }
+  });
   $("#clear-filters").addEventListener("click", () => {
     filters = emptyFilters();
     update();

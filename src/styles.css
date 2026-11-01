@@ -182,6 +182,31 @@ body {
   margin: 4px 0 0;
 }
 
+#searchbar {
+  padding: 8px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+#searchbar[hidden] {
+  display: none;
+}
+
+#search {
+  width: min(420px, 100%);
+  font: inherit;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: inherit;
+}
+
+#search:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
 #content {
   flex: 1;
   overflow: auto;
