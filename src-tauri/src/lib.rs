@@ -16,7 +16,7 @@ use std::io;
 use std::path::Path;
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use classify::Classifier;
 use config::Config;
@@ -71,13 +71,26 @@ enum MoveResult {
     Exists { path: String },
 }
 
+/// Passa a observar manabox.index.md e manabox.paths.md (nos locais atuais); mudança feita fora
+/// do programa emite `config-changed`.
+fn watch_config(app: &AppHandle) -> Result<(), String> {
+    let config = Config::load(&config::default_dir()).map_err(|e| e.to_string())?;
+    let emitter = app.clone();
+    app.state::<watch::ConfigWatcher>().watch(&[config.index, config.paths], move || {
+        let _ = emitter.emit("config-changed", ());
+    })
+}
+
 /// Move manabox.index.md ou manabox.paths.md para outra pasta. Sem `overwrite`, conflito volta como `exists`.
 #[tauri::command]
-fn move_config_file(file: config::ConfigFile, dest_dir: String, overwrite: bool) -> Result<MoveResult, String> {
+fn move_config_file(file: config::ConfigFile, dest_dir: String, overwrite: bool, app: AppHandle) -> Result<MoveResult, String> {
     let dir = config::default_dir();
     let mut config = Config::load(&dir).map_err(|e| e.to_string())?;
     match config.move_file(file, Path::new(&dest_dir), overwrite, &dir) {
-        Ok(config::MoveOutcome::Moved) => Ok(MoveResult::Moved { state: load_state()? }),
+        Ok(config::MoveOutcome::Moved) => {
+            watch_config(&app)?; // observação acompanha o novo local
+            Ok(MoveResult::Moved { state: load_state()? })
+        }
         Ok(config::MoveOutcome::Exists(path)) => Ok(MoveResult::Exists { path: path.display().to_string() }),
         Err(e) => Err(format!("Erro ao mover para {dest_dir}: {e}")),
     }
@@ -239,6 +252,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(watch::FolderWatcher::default())
+        .manage(watch::ConfigWatcher::default())
+        .setup(|app| {
+            if let Err(error) = watch_config(app.handle()) {
+                eprintln!("{error}"); // sem observação o programa funciona; só não recarrega sozinho
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, drag_files, open_folder, open_file, quit])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

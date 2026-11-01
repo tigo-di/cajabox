@@ -48,6 +48,7 @@ O programa gera manabox.index.md e manabox.paths.md (usando os samples como mode
 - `~/.config/manabox/config` guarda a localização atual de manabox.index.md e manabox.paths.md
 - O programa mostra onde eles estão salvos e permite movê-los
 - São editados dentro do programa; o usuário não precisa abrir os arquivos
+- Editados fora do programa (com ele aberto): recarregados sozinhos; pasta aberta e filtros marcados (pelo nome) mantidos
 - Blocos `<!-- -->` são comentários e ignorados na leitura
 
 ## manabox.paths.md
