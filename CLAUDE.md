@@ -8,7 +8,7 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 - Sistema operacional: Ubuntu; distribuído como AppImage
 - Ícone: `python3 scripts/icon.py` (baú em pixel art; ver instruções no script)
 - Versão: `package.json` (lida pelo tauri.conf.json); `src-tauri/Cargo.toml` acompanha
-- Licença: GPL-3.0-or-later (LICENSE); autor Tiago Dias <tiago@webdeleve.net>
+- Licença: GPL-3.0-or-later (LICENSE); autor Tiago Dias <tigo@webdeleve.net>
 - Desenvolvimento no host (Rust + libs do Tauri instalados localmente)
 - Build do AppImage dentro de container Docker com Ubuntu 22.04 (glibc antiga = AppImage compatível com mais sistemas)
 

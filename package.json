@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.7.0",
   "description": "Gerenciamento de conteúdo",
-  "author": "Tiago Dias <tiago@webdeleve.net>",
+  "author": "Tiago Dias <tigo@webdeleve.net>",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {

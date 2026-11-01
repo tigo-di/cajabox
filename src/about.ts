@@ -4,7 +4,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { button, el } from "./dom";
 
 const AUTHOR = "Tiago Dias";
-const EMAIL = "tiago@webdeleve.net";
+const EMAIL = "tigo@webdeleve.net";
 const LICENSE_URL = "https://www.gnu.org/licenses/gpl-3.0.html";
 
 function externalLink(label: string, url: string) {

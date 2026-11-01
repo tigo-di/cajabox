@@ -23,6 +23,6 @@ Detalhes da especificação em [CLAUDE.md](CLAUDE.md).
 
 ## Autoria e licença
 
-© 2026 Tiago Dias — tiago@webdeleve.net
+© 2026 Tiago Dias — tigo@webdeleve.net
 
 Software livre sob a [GNU General Public License v3.0 ou posterior](LICENSE): pode ser usado, alterado, distribuído e vendido; versões derivadas devem manter os créditos e a mesma licença.
