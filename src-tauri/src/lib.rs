@@ -93,19 +93,34 @@ fn trash_files(paths: Vec<String>) -> Result<(), String> {
 
 #[derive(Serialize)]
 #[serde(tag = "status", rename_all = "lowercase")]
-enum FileMoveResult {
-    Moved { path: String },
+enum FileResult {
+    Done { path: String },
     Exists { path: String },
+}
+
+impl From<fileops::Outcome> for FileResult {
+    fn from(outcome: fileops::Outcome) -> Self {
+        match outcome {
+            fileops::Outcome::Done(to) => FileResult::Done { path: to.display().to_string() },
+            fileops::Outcome::Exists(to) => FileResult::Exists { path: to.display().to_string() },
+        }
+    }
 }
 
 /// Move um arquivo para outra pasta. Sem `overwrite`, conflito volta como `exists`.
 #[tauri::command]
-fn move_file(path: String, dest_dir: String, overwrite: bool) -> Result<FileMoveResult, String> {
-    match fileops::move_to(Path::new(&path), Path::new(&dest_dir), overwrite) {
-        Ok(fileops::MoveOutcome::Moved(to)) => Ok(FileMoveResult::Moved { path: to.display().to_string() }),
-        Ok(fileops::MoveOutcome::Exists(to)) => Ok(FileMoveResult::Exists { path: to.display().to_string() }),
-        Err(e) => Err(format!("Erro ao mover {path}: {e}")),
-    }
+fn move_file(path: String, dest_dir: String, overwrite: bool) -> Result<FileResult, String> {
+    fileops::move_to(Path::new(&path), Path::new(&dest_dir), overwrite)
+        .map(FileResult::from)
+        .map_err(|e| format!("Erro ao mover {path}: {e}"))
+}
+
+/// Copia um arquivo para outra pasta. Sem `overwrite`, conflito volta como `exists`.
+#[tauri::command]
+fn copy_file(path: String, dest_dir: String, overwrite: bool) -> Result<FileResult, String> {
+    fileops::copy_to(Path::new(&path), Path::new(&dest_dir), overwrite)
+        .map(FileResult::from)
+        .map_err(|e| format!("Erro ao copiar {path}: {e}"))
 }
 
 /// Passa a observar `path` (e para a pasta anterior); mudanças emitem o evento `folder-changed` com o caminho.
@@ -139,7 +154,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(watch::FolderWatcher::default())
-        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, watch_folder, quit])
+        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, quit])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

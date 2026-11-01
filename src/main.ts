@@ -26,10 +26,10 @@ let visible: FileEntry[] = [];
 let selected = new Set<string>();
 /** Âncora do Shift+clique. */
 let anchor: string | null = null;
-/** Caminhos recortados; persistem ao trocar de pasta. */
-let clipboard: string[] = [];
+/** Arquivos copiados ou recortados; persistem ao trocar de pasta. */
+let clipboard: { mode: "copy" | "cut"; paths: string[] } = { mode: "cut", paths: [] };
 
-type FileMoveResult = { status: "moved" | "exists"; path: string };
+type FileResult = { status: "done" | "exists"; path: string };
 
 function formatDate(date: FileDate): string {
   const mm = String(date.month).padStart(2, "0");
@@ -132,33 +132,38 @@ function clickRow(file: FileEntry, event: MouseEvent) {
 function renderToolbar() {
   const bar = $("#toolbar");
   bar.replaceChildren();
-  if (!current || (files.length === 0 && clipboard.length === 0)) return;
+  if (!current || (files.length === 0 && clipboard.paths.length === 0)) return;
 
   const count = selected.size;
   const rename = button("Renomear", renameSelected);
   rename.disabled = count !== 1;
   rename.title = "F2";
-  const cut = button("Recortar", cutSelected);
+  const copy = button("Copiar", () => toClipboard("copy"));
+  copy.disabled = count === 0;
+  copy.title = "Ctrl+C";
+  const cut = button("Recortar", () => toClipboard("cut"));
   cut.disabled = count === 0;
   cut.title = "Ctrl+X";
   const remove = button("Excluir", trashSelected, "danger");
   remove.disabled = count === 0;
   remove.title = "Delete";
   const info = count ? `${count} ${count === 1 ? "selecionado" : "selecionados"}` : "Nenhum selecionado";
-  bar.append(el("div", { class: "toolbar-group" }, el("span", { class: "toolbar-info" }, info), rename, cut, remove));
+  bar.append(el("div", { class: "toolbar-group" }, el("span", { class: "toolbar-info" }, info), rename, copy, cut, remove));
 
-  if (clipboard.length) {
+  const pending = clipboard.paths.length;
+  if (pending) {
+    const label = clipboard.mode === "copy" ? ["copiado", "copiados"] : ["recortado", "recortados"];
     const here = button("Colar aqui", () => current && paste(current.path), "primary");
     here.title = "Ctrl+V — na raiz da pasta aberta";
     bar.append(
       el(
         "div",
         { class: "toolbar-group" },
-        el("span", { class: "toolbar-info" }, `${clipboard.length} ${clipboard.length === 1 ? "recortado" : "recortados"}`),
+        el("span", { class: "toolbar-info" }, `${pending} ${label[pending === 1 ? 0 : 1]}`),
         here,
         button("Colar em…", pasteInto),
         button("Cancelar", () => {
-          clipboard = [];
+          clipboard = { mode: "cut", paths: [] };
           renderFiles();
         }),
       ),
@@ -192,7 +197,7 @@ function renderFiles() {
       el("td", { class: "date" }, file.date ? formatDate(file.date) : ""),
     );
     row.classList.toggle("selected", selected.has(file.path));
-    row.classList.toggle("cut", clipboard.includes(file.path));
+    row.classList.toggle("cut", clipboard.mode === "cut" && clipboard.paths.includes(file.path));
     row.addEventListener("click", (event) => clickRow(file, event));
     body.append(row);
   }
@@ -239,7 +244,7 @@ async function renameSelected() {
   if (newName === null || newName === name) return;
   try {
     const newPath = await invoke<string>("rename_file", { path, newName });
-    clipboard = clipboard.map((p) => (p === path ? newPath : p));
+    clipboard.paths = clipboard.paths.map((p) => (p === path ? newPath : p));
     selected = new Set([newPath]);
     anchor = newPath;
   } catch (error) {
@@ -248,9 +253,9 @@ async function renameSelected() {
   await reload();
 }
 
-function cutSelected() {
+function toClipboard(mode: "copy" | "cut") {
   if (selected.size === 0) return;
-  clipboard = [...selected];
+  clipboard = { mode, paths: [...selected] };
   renderFiles();
 }
 
@@ -261,7 +266,7 @@ async function trashSelected() {
   if (!(await ask(`Enviar ${what} para a lixeira?`, { title: "Excluir", kind: "warning" }))) return;
   try {
     await invoke("trash_files", { paths });
-    clipboard = clipboard.filter((p) => !paths.includes(p));
+    clipboard.paths = clipboard.paths.filter((p) => !paths.includes(p));
     selected.clear();
   } catch (error) {
     await message(String(error), { title: "Excluir", kind: "error" });
@@ -269,25 +274,27 @@ async function trashSelected() {
   await reload();
 }
 
-/** Move os recortados para `dest`; em conflito pergunta por arquivo se substitui. */
+/** Copia ou move os arquivos do clipboard para `dest`; em conflito pergunta por arquivo se substitui.
+ * Recorte é colado uma vez só; cópia pode ser colada de novo. */
 async function paste(dest: string) {
+  const command = clipboard.mode === "copy" ? "copy_file" : "move_file";
   const errors: string[] = [];
-  const moved: string[] = [];
-  for (const path of clipboard) {
+  const pasted: string[] = [];
+  for (const path of clipboard.paths) {
     try {
-      let result = await invoke<FileMoveResult>("move_file", { path, destDir: dest, overwrite: false });
+      let result = await invoke<FileResult>(command, { path, destDir: dest, overwrite: false });
       if (result.status === "exists") {
         const replace = await ask(`Já existe ${result.path}.\nSubstituir?`, { title: "Arquivo já existe", kind: "warning" });
         if (!replace) continue;
-        result = await invoke<FileMoveResult>("move_file", { path, destDir: dest, overwrite: true });
+        result = await invoke<FileResult>(command, { path, destDir: dest, overwrite: true });
       }
-      moved.push(result.path);
+      pasted.push(result.path);
     } catch (error) {
       errors.push(String(error));
     }
   }
-  clipboard = [];
-  selected = new Set(moved);
+  if (clipboard.mode === "cut") clipboard = { mode: "cut", paths: [] };
+  selected = new Set(pasted);
   if (errors.length) await message(errors.join("\n"), { title: "Colar", kind: "error" });
   await reload();
 }
@@ -314,8 +321,9 @@ function onKeyDown(event: KeyboardEvent) {
   const key = event.key.toLowerCase();
   if (event.key === "F2") renameSelected();
   else if (event.key === "Delete") trashSelected();
-  else if (ctrl && key === "x") cutSelected();
-  else if (ctrl && key === "v" && clipboard.length) paste(current.path);
+  else if (ctrl && key === "c") toClipboard("copy");
+  else if (ctrl && key === "x") toClipboard("cut");
+  else if (ctrl && key === "v" && clipboard.paths.length) paste(current.path);
   else if (ctrl && key === "a") {
     selected = new Set(visible.map((f) => f.path));
     renderFiles();

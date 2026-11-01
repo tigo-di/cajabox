@@ -74,7 +74,8 @@ Uma pasta por linha: `nome|descrição|caminho absoluto`
 - Datas: filtro por ano e mês
 
 # Operações com arquivos
-- Recortar, colar, excluir, renomear arquivos das pastas listadas
+- Copiar, recortar, colar, excluir, renomear arquivos das pastas listadas
+- Cópia pode ser colada várias vezes; recorte, uma vez
 - Excluir envia para a lixeira (não apaga definitivamente)
 - Colar sobre arquivo de mesmo nome: perguntar se quer substituir
 - Após renomear/mover, a classificação é recalculada
