@@ -26,8 +26,10 @@ let visible: FileEntry[] = [];
 let selected = new Set<string>();
 /** Âncora do Shift+clique. */
 let anchor: string | null = null;
-/** Arquivos copiados ou recortados; persistem ao trocar de pasta. */
-let clipboard: { mode: "copy" | "cut"; paths: string[] } = { mode: "cut", paths: [] };
+type ClipboardFiles = { mode: "copy" | "cut"; paths: string[]; skipped: string[] };
+const EMPTY_CLIPBOARD: ClipboardFiles = { mode: "copy", paths: [], skipped: [] };
+/** Espelho da área de transferência do sistema (arquivos copiados/recortados no manabox ou num gerenciador). */
+let clipboard = EMPTY_CLIPBOARD;
 
 type FileResult = { status: "done" | "exists"; path: string };
 
@@ -163,8 +165,7 @@ function renderToolbar() {
         here,
         button("Colar em…", pasteInto),
         button("Cancelar", () => {
-          clipboard = { mode: "cut", paths: [] };
-          renderFiles();
+          setClipboard([], "copy");
         }),
       ),
     );
@@ -244,7 +245,9 @@ async function renameSelected() {
   if (newName === null || newName === name) return;
   try {
     const newPath = await invoke<string>("rename_file", { path, newName });
-    clipboard.paths = clipboard.paths.map((p) => (p === path ? newPath : p));
+    if (clipboard.paths.includes(path)) {
+      await setClipboard(clipboard.paths.map((p) => (p === path ? newPath : p)), clipboard.mode);
+    }
     selected = new Set([newPath]);
     anchor = newPath;
   } catch (error) {
@@ -253,10 +256,31 @@ async function renameSelected() {
   await reload();
 }
 
-function toClipboard(mode: "copy" | "cut") {
-  if (selected.size === 0) return;
-  clipboard = { mode, paths: [...selected] };
+/** Lê a área de transferência do sistema (pode ter mudado em outro programa). */
+async function refreshClipboard() {
+  try {
+    clipboard = (await invoke<ClipboardFiles | null>("clipboard_get")) ?? EMPTY_CLIPBOARD;
+  } catch (error) {
+    console.error(error);
+    clipboard = EMPTY_CLIPBOARD;
+  }
+  if (current) renderFiles();
+}
+
+/** Grava (ou, sem caminhos, esvazia) a área de transferência do sistema. */
+async function setClipboard(paths: string[], mode: "copy" | "cut") {
+  try {
+    if (paths.length) await invoke("clipboard_set", { paths, mode });
+    else await invoke("clipboard_clear");
+    clipboard = { mode, paths, skipped: [] };
+  } catch (error) {
+    await message(String(error), { title: "Área de transferência", kind: "error" });
+  }
   renderFiles();
+}
+
+function toClipboard(mode: "copy" | "cut") {
+  if (selected.size) setClipboard([...selected], mode);
 }
 
 async function trashSelected() {
@@ -266,7 +290,9 @@ async function trashSelected() {
   if (!(await ask(`Enviar ${what} para a lixeira?`, { title: "Excluir", kind: "warning" }))) return;
   try {
     await invoke("trash_files", { paths });
-    clipboard.paths = clipboard.paths.filter((p) => !paths.includes(p));
+    if (clipboard.paths.some((p) => paths.includes(p))) {
+      await setClipboard(clipboard.paths.filter((p) => !paths.includes(p)), clipboard.mode);
+    }
     selected.clear();
   } catch (error) {
     await message(String(error), { title: "Excluir", kind: "error" });
@@ -277,6 +303,11 @@ async function trashSelected() {
 /** Copia ou move os arquivos do clipboard para `dest`; em conflito pergunta por arquivo se substitui.
  * Recorte é colado uma vez só; cópia pode ser colada de novo. */
 async function paste(dest: string) {
+  await refreshClipboard();
+  if (clipboard.skipped.length) {
+    await message(`Só arquivos podem ser colados. Ignorados:\n${clipboard.skipped.join("\n")}`, { title: "Colar", kind: "warning" });
+  }
+  if (clipboard.paths.length === 0) return;
   const command = clipboard.mode === "copy" ? "copy_file" : "move_file";
   const errors: string[] = [];
   const pasted: string[] = [];
@@ -293,7 +324,7 @@ async function paste(dest: string) {
       errors.push(String(error));
     }
   }
-  if (clipboard.mode === "cut") clipboard = { mode: "cut", paths: [] };
+  if (clipboard.mode === "cut") await setClipboard([], "copy"); // recorte colado sai da área de transferência
   selected = new Set(pasted);
   if (errors.length) await message(errors.join("\n"), { title: "Colar", kind: "error" });
   await reload();
@@ -323,7 +354,7 @@ function onKeyDown(event: KeyboardEvent) {
   else if (event.key === "Delete") trashSelected();
   else if (ctrl && key === "c") toClipboard("copy");
   else if (ctrl && key === "x") toClipboard("cut");
-  else if (ctrl && key === "v" && clipboard.paths.length) paste(current.path);
+  else if (ctrl && key === "v") paste(current.path);
   else if (ctrl && key === "a") {
     selected = new Set(visible.map((f) => f.path));
     renderFiles();
@@ -462,11 +493,13 @@ async function init() {
     update();
   });
   document.addEventListener("keydown", onKeyDown);
+  window.addEventListener("focus", refreshClipboard); // o usuário pode ter copiado no gerenciador de arquivos
   await listen<string>("folder-changed", (event) => {
     if (event.payload === current?.path) reload();
   });
   try {
     applyState(await invoke<State>("load_state"));
+    refreshClipboard();
   } catch (error) {
     renderMessage(`Erro ao carregar configuração: ${error}`, "error");
   }

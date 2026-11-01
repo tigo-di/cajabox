@@ -1,4 +1,5 @@
 mod classify;
+mod clipboard;
 mod config;
 mod fileops;
 mod index;
@@ -132,6 +133,37 @@ fn watch_folder(path: String, app: AppHandle, watcher: tauri::State<'_, watch::F
     })
 }
 
+#[derive(Serialize)]
+struct ClipboardFiles {
+    mode: clipboard::Mode,
+    /// Arquivos existentes.
+    paths: Vec<String>,
+    /// Pastas e caminhos inexistentes (o manabox opera só arquivos).
+    skipped: Vec<String>,
+}
+
+/// Coloca arquivos na área de transferência do sistema (copiar ou recortar).
+/// Síncrono de propósito: roda na thread principal, exigida pelo GTK.
+#[tauri::command]
+fn clipboard_set(paths: Vec<String>, mode: clipboard::Mode) -> Result<(), String> {
+    clipboard::system::set(clipboard::Contents { mode, paths: paths.into_iter().map(Into::into).collect() })
+}
+
+/// Arquivos na área de transferência do sistema, vindos do manabox ou de um gerenciador de arquivos.
+#[tauri::command]
+fn clipboard_get() -> Option<ClipboardFiles> {
+    let contents = clipboard::system::get()?;
+    let (files, skipped): (Vec<_>, Vec<_>) = contents.paths.into_iter().partition(|p| p.is_file());
+    let text = |paths: Vec<std::path::PathBuf>| paths.iter().map(|p| p.display().to_string()).collect();
+    Some(ClipboardFiles { mode: contents.mode, paths: text(files), skipped: text(skipped) })
+}
+
+/// Esvazia a área de transferência do sistema.
+#[tauri::command]
+fn clipboard_clear() {
+    clipboard::system::clear();
+}
+
 /// Encerra o programa.
 #[tauri::command]
 fn quit(app: AppHandle) {
@@ -154,7 +186,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(watch::FolderWatcher::default())
-        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, quit])
+        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, quit])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
