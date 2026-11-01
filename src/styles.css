@@ -81,10 +81,19 @@ body {
 }
 
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 700;
   font-size: 16px;
   letter-spacing: 0.02em;
   padding: 0 8px 16px;
+}
+
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated; /* 32 px = 2× a grade de 16: pixels nítidos */
 }
 
 .sidebar h2 {
