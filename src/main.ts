@@ -158,9 +158,13 @@ function termChips(file: FileEntry): HTMLElement {
   file.terms.forEach((found, s) => {
     for (const t of found) {
       const section = sections[s];
-      cell.append(
-        el("span", { class: `chip s${s % 6}`, title: section?.name ?? "" }, section?.terms[t]?.name ?? "?"),
-      );
+      const name = section?.terms[t]?.name ?? "?";
+      const key = termKey(s, t);
+      const active = filters.terms.has(key);
+      const title = `${section?.name ?? ""}: ${active ? "remover filtro" : "filtrar por"} ${name}`;
+      const chip = el("span", { class: `chip row-chip s${s % 6}`, title, "data-term": key }, name);
+      chip.classList.toggle("selected", active);
+      cell.append(chip);
     }
   });
   return cell;
@@ -268,9 +272,18 @@ function renderFiles() {
     );
     row.classList.toggle("selected", selected.has(file.path));
     row.classList.toggle("cut", clipboard.mode === "cut" && clipboard.paths.includes(file.path));
-    row.addEventListener("click", (event) => clickRow(file, event));
-    row.addEventListener("dblclick", () => openFiles([file.path]));
+    // Termo na linha (chip): alterna o filtro, sem selecionar, arrastar nem abrir o arquivo
+    const chipOf = (event: Event) => (event.target as HTMLElement).closest<HTMLElement>(".row-chip");
+    row.addEventListener("click", (event) => {
+      const chip = chipOf(event);
+      if (!chip) return clickRow(file, event);
+      const key = chip.dataset.term!;
+      if (!filters.terms.delete(key)) filters.terms.add(key);
+      update();
+    });
+    row.addEventListener("dblclick", (event) => chipOf(event) || openFiles([file.path]));
     row.addEventListener("mousedown", (event) => {
+      if (chipOf(event)) return;
       if (event.shiftKey) event.preventDefault(); // Shift+clique não estende seleção de texto pela página
       if (event.button === 0 && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
         pressed = { file, x: event.clientX, y: event.clientY };

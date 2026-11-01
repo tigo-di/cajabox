@@ -411,6 +411,20 @@ button.link {
   flex-wrap: wrap;
 }
 
+.row-chip {
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.row-chip:hover {
+  border-color: currentColor;
+}
+
+.row-chip.selected {
+  border-color: currentColor;
+  font-weight: 600;
+}
+
 .chip.toggle {
   border: 1px solid transparent;
   font: inherit;
