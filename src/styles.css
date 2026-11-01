@@ -320,6 +320,25 @@ button.link.path-link:hover {
   font-size: 12px;
 }
 
+.files .size {
+  text-align: right;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.files tr.group-row td {
+  padding-top: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.files tbody tr.group-row:hover {
+  background: none;
+}
+
 .files .date {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;

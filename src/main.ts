@@ -35,6 +35,13 @@ let clipboard = EMPTY_CLIPBOARD;
 
 let sort = readSort();
 
+type DuplicateMode = "name" | "content";
+/** Modo Duplicados: critério, grupos de caminhos (`null` = buscando) e progresso da busca por
+ * conteúdo. Considera todos os arquivos da pasta aberta (filtros e busca ficam suspensos). */
+let duplicates: { mode: DuplicateMode; groups: string[][] | null; progress: [number, number] | null } | null = null;
+/** Identifica a busca mais recente; resultados de buscas anteriores são descartados. */
+let duplicatesRun = 0;
+
 const COLLAPSED_KEY = "manabox.collapsed";
 /** Grupos de filtro recolhidos: `date` ou `section:<nome>`; lembrados entre execuções. */
 let collapsed = readCollapsed();
@@ -113,14 +120,20 @@ function countLabel(shown: number, total: number): string {
 function renderHeader(shown: number | null) {
   const header = $("#folder-header");
   header.replaceChildren();
-  $("#searchbar").hidden = !current;
+  $("#searchbar").hidden = !current || !!duplicates; // busca suspensa no modo Duplicados
   if (!current) return;
   header.append(
     el(
       "div",
       { class: "title-row" },
       el("h1", {}, current.name),
-      shown === null ? "" : el("span", { class: "count" }, countLabel(shown, files.length)),
+      shown === null
+        ? ""
+        : el(
+            "span",
+            { class: "count" },
+            duplicates?.groups ? `${shown} duplicados de ${files.length} arquivos` : countLabel(shown, files.length),
+          ),
     ),
     current.description ? el("p", { class: "desc" }, current.description) : "",
     el("p", { class: "path" }, folderLink(current.path, current.path)),
@@ -208,6 +221,24 @@ function renderToolbar() {
   const info = count ? `${count} ${count === 1 ? "selecionado" : "selecionados"}` : "Nenhum selecionado";
   bar.append(el("div", { class: "toolbar-group" }, el("span", { class: "toolbar-info" }, info), rename, copy, cut, remove));
 
+  const searching = duplicates?.groups === null;
+  const modeButton = (label: string, mode: DuplicateMode) => {
+    const active = duplicates?.mode === mode;
+    const node = button(label, () => (active ? exitDuplicates() : findDuplicates(mode)), active ? "primary" : "");
+    node.title = active ? "Sair do modo Duplicados" : `Arquivos repetidos na pasta, por ${label.toLowerCase()}`;
+    return node;
+  };
+  bar.append(
+    el(
+      "div",
+      { class: "toolbar-group" },
+      el("span", { class: "toolbar-info" }, "Duplicados:"),
+      modeButton("Nome", "name"),
+      modeButton("Conteúdo", "content"),
+      duplicates ? button(searching ? "Cancelar" : "Sair", exitDuplicates) : "",
+    ),
+  );
+
   const pending = clipboard.paths.length;
   if (pending) {
     const label = clipboard.mode === "copy" ? ["copiado", "copiados"] : ["recortado", "recortados"];
@@ -242,7 +273,62 @@ function sortHeader(label: string, key: SortKey) {
   return th;
 }
 
+const sizeFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
+
+/** Tamanho legível (unidades de 1000, como no Nautilus). */
+function formatSize(bytes: number): string {
+  const units = ["bytes", "kB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1000 && unit < units.length - 1) {
+    value /= 1000;
+    unit++;
+  }
+  return `${sizeFormat.format(value)} ${units[unit]}`;
+}
+
+/** Entra no modo Duplicados (ou troca o critério) e busca; sem `mode`, refaz a busca atual. */
+async function findDuplicates(mode?: DuplicateMode) {
+  const folder = current;
+  if (!folder) return;
+  if (mode && mode !== duplicates?.mode) duplicates = { mode, groups: null, progress: null };
+  if (!duplicates) return;
+  const run = ++duplicatesRun;
+  const searching = duplicates;
+  update();
+  try {
+    const groups = await invoke<string[][] | null>("find_duplicates", { path: folder.path, mode: searching.mode });
+    if (run !== duplicatesRun || current !== folder || duplicates !== searching) return;
+    if (groups === null) duplicates = null; // cancelado
+    else {
+      duplicates.groups = groups;
+      duplicates.progress = null;
+    }
+  } catch (error) {
+    if (run !== duplicatesRun) return;
+    duplicates = null;
+    await message(String(error), { title: "Duplicados", kind: "error" });
+  }
+  update();
+}
+
+function exitDuplicates() {
+  if (duplicates?.groups === null) invoke("cancel_duplicates");
+  duplicates = null;
+  duplicatesRun++;
+  update();
+}
+
+/** Grupos de duplicados ainda presentes na lista (arquivo excluído ou movido sai do grupo). */
+function duplicateGroups(): FileEntry[][] {
+  const byPath = new Map(files.map((f) => [f.path, f]));
+  return (duplicates?.groups ?? [])
+    .map((group) => group.flatMap((path) => byPath.get(path) ?? []))
+    .filter((group) => group.length > 1);
+}
+
 function renderFiles() {
+  if (duplicates) return renderDuplicates();
   visible = sortFiles(
     files.filter((f) => matches(f, filters)),
     sort,
@@ -260,37 +346,7 @@ function renderFiles() {
     return;
   }
   const body = el("tbody");
-  for (const file of visible) {
-    const slash = file.relative_path.lastIndexOf("/");
-    const row = el(
-      "tr",
-      { title: file.path },
-      el("td", { class: "name" }, file.name),
-      el("td", { class: "subdir" }, slash > 0 ? subdirLink(file) : ""),
-      termChips(file),
-      el("td", { class: "date" }, file.date ? formatDate(file.date) : ""),
-    );
-    row.classList.toggle("selected", selected.has(file.path));
-    row.classList.toggle("cut", clipboard.mode === "cut" && clipboard.paths.includes(file.path));
-    // Termo na linha (chip): alterna o filtro, sem selecionar, arrastar nem abrir o arquivo
-    const chipOf = (event: Event) => (event.target as HTMLElement).closest<HTMLElement>(".row-chip");
-    row.addEventListener("click", (event) => {
-      const chip = chipOf(event);
-      if (!chip) return clickRow(file, event);
-      const key = chip.dataset.term!;
-      if (!filters.terms.delete(key)) filters.terms.add(key);
-      update();
-    });
-    row.addEventListener("dblclick", (event) => chipOf(event) || openFiles([file.path]));
-    row.addEventListener("mousedown", (event) => {
-      if (chipOf(event)) return;
-      if (event.shiftKey) event.preventDefault(); // Shift+clique não estende seleção de texto pela página
-      if (event.button === 0 && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
-        pressed = { file, x: event.clientX, y: event.clientY };
-      }
-    });
-    body.append(row);
-  }
+  for (const file of visible) body.append(fileRow(file));
   const table = el(
     "table",
     { class: "files" },
@@ -301,10 +357,87 @@ function renderFiles() {
     ),
     body,
   );
+  showTable(table);
+}
+
+/** Lista do modo Duplicados: grupos com título, coluna Tamanho, sem filtros nem ordenação. */
+function renderDuplicates() {
+  const groups = duplicateGroups();
+  visible = groups.flat();
+  const shown = new Set(visible.map((f) => f.path));
+  selected = new Set([...selected].filter((p) => shown.has(p)));
+  renderHeader(visible.length);
+  renderToolbar();
+  if (!duplicates || duplicates.groups === null) {
+    const [done, total] = duplicates?.progress ?? [0, 0];
+    renderMessage(total ? `Verificando… ${done} de ${total}` : "Procurando duplicados…");
+    return;
+  }
+  if (groups.length === 0) {
+    renderMessage("Nenhum arquivo duplicado nesta pasta.");
+    return;
+  }
+  const body = el("tbody");
+  for (const group of groups) {
+    const title =
+      duplicates.mode === "content"
+        ? `${group.length} arquivos iguais · ${formatSize(group[0].size)} cada`
+        : `${group.length} arquivos com o nome “${group[0].name}”`;
+    body.append(el("tr", { class: "group-row" }, el("td", { colspan: "5" }, title)));
+    for (const file of group) body.append(fileRow(file, true));
+  }
+  const table = el(
+    "table",
+    { class: "files" },
+    el(
+      "thead",
+      {},
+      el("tr", {}, el("th", {}, "Nome"), el("th", {}, "Subpasta"), el("th", {}, "Termos"), el("th", {}, "Data"), el("th", { class: "size" }, "Tamanho")),
+    ),
+    body,
+  );
+  showTable(table);
+}
+
+function showTable(table: HTMLElement) {
   const content = $("#content");
   const scroll = content.scrollTop;
   content.replaceChildren(table);
   content.scrollTop = scroll;
+}
+
+/** Linha de um arquivo (com coluna Tamanho no modo Duplicados). */
+function fileRow(file: FileEntry, withSize = false): HTMLTableRowElement {
+  const slash = file.relative_path.lastIndexOf("/");
+  const row = el(
+    "tr",
+    { title: file.path },
+    el("td", { class: "name" }, file.name),
+    el("td", { class: "subdir" }, slash > 0 ? subdirLink(file) : ""),
+    termChips(file),
+    el("td", { class: "date" }, file.date ? formatDate(file.date) : ""),
+    withSize ? el("td", { class: "size" }, formatSize(file.size)) : "",
+  );
+  row.classList.toggle("selected", selected.has(file.path));
+  row.classList.toggle("cut", clipboard.mode === "cut" && clipboard.paths.includes(file.path));
+  // Termo na linha (chip): alterna o filtro, sem selecionar, arrastar nem abrir o arquivo
+  const chipOf = (event: Event) => (event.target as HTMLElement).closest<HTMLElement>(".row-chip");
+  row.addEventListener("click", (event) => {
+    const chip = chipOf(event);
+    if (!chip || duplicates) return clickRow(file, event); // filtros suspensos no modo Duplicados
+    const key = chip.dataset.term!;
+    if (!filters.terms.delete(key)) filters.terms.add(key);
+    update();
+  });
+  row.addEventListener("dblclick", (event) => chipOf(event) || openFiles([file.path]));
+  row.addEventListener("mousedown", (event) => {
+    if (chipOf(event)) return;
+    if (event.shiftKey) event.preventDefault(); // Shift+clique não estende seleção de texto pela página
+    if (event.button === 0 && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
+      pressed = { file, x: event.clientX, y: event.clientY };
+    }
+  });
+  return row;
 }
 
 /** Relista a pasta atual sem apagar a tela, mantendo filtros e a seleção que ainda existir. */
@@ -317,6 +450,7 @@ async function reload() {
     files = result;
     normalizeDateFilter();
     update();
+    if (duplicates?.groups) findDuplicates(); // novos arquivos podem ser cópias (conteúdo usa cache)
   } catch (error) {
     if (current !== folder) return;
     $("#filters").replaceChildren();
@@ -575,6 +709,10 @@ function renderFilters() {
     panel.append(el("p", { class: "hint" }, "Índice vazio. Use “Editar índice” para criar seções e termos."));
   }
   if (!current || files.length === 0) return;
+  if (duplicates) {
+    panel.replaceChildren(el("p", { class: "hint" }, "Filtros suspensos no modo Duplicados."));
+    return;
+  }
 
   const yearOptions: [string, string][] = [["", "Todos os anos"], ...yearsOf(files).map((y): [string, string] => [String(y), String(y)])];
   if (files.some((f) => f.date === null)) yearOptions.push(["none", "Sem data"]);
@@ -625,6 +763,7 @@ function update() {
 }
 
 async function selectFolder(folder: Folder) {
+  if (duplicates) exitDuplicates();
   current = folder;
   files = [];
   selected.clear();
@@ -741,6 +880,11 @@ async function init() {
   document.addEventListener("mouseup", () => (pressed = null));
   await listen("drag-out-ended", () => (draggingOut = false));
   await listen("config-changed", reloadState);
+  await listen<[number, number]>("duplicates-progress", (event) => {
+    if (duplicates?.groups !== null || !duplicates) return;
+    duplicates.progress = event.payload;
+    renderFiles();
+  });
   await listen<string>("folder-changed", (event) => {
     if (event.payload === current?.path) reload();
   });

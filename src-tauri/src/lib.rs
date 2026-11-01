@@ -1,6 +1,7 @@
 mod classify;
 mod clipboard;
 mod config;
+mod duplicates;
 #[cfg(target_os = "linux")]
 mod dragout;
 mod fileops;
@@ -269,6 +270,37 @@ fn quit(app: AppHandle) {
     app.exit(0);
 }
 
+/// Grupos de arquivos duplicados (caminhos) na pasta, por nome ou conteúdo; `None` = cancelado.
+/// Roda fora da thread principal; por conteúdo emite `duplicates-progress` com (feitos, total).
+#[tauri::command]
+async fn find_duplicates(path: String, mode: duplicates::Mode, app: AppHandle) -> Result<Option<Vec<Vec<String>>>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let (_, index) = load()?;
+        let files = scan::list_files(Path::new(&path), &Classifier::new(&index)).map_err(|e| format!("{path}: {e}"))?;
+        Ok(match mode {
+            duplicates::Mode::Name => Some(duplicates::by_name(&files)),
+            duplicates::Mode::Content => {
+                let last = std::cell::Cell::new(std::time::Instant::now());
+                app.state::<duplicates::Search>().by_content(&files, |done, total| {
+                    // no máximo ~10 avisos por segundo, mais o último
+                    if done == total || last.get().elapsed().as_millis() >= 100 {
+                        last.set(std::time::Instant::now());
+                        let _ = app.emit("duplicates-progress", (done, total));
+                    }
+                })
+            }
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Cancela a busca de duplicados por conteúdo em andamento.
+#[tauri::command]
+fn cancel_duplicates(search: tauri::State<'_, duplicates::Search>) {
+    search.cancel();
+}
+
 /// Arquivos classificados de uma pasta.
 #[tauri::command]
 fn list_folder(path: String) -> Result<Vec<FileEntry>, String> {
@@ -287,13 +319,14 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(watch::FolderWatcher::default())
         .manage(watch::ConfigWatcher::default())
+        .manage(duplicates::Search::default())
         .setup(|app| {
             if let Err(error) = watch_config(app.handle()) {
                 eprintln!("{error}"); // sem observação o programa funciona; só não recarrega sozinho
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, drag_files, open_folder, open_file, quit])
+        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, drag_files, find_duplicates, cancel_duplicates, open_folder, open_file, quit])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

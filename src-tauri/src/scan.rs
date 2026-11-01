@@ -12,6 +12,8 @@ pub struct FileEntry {
     /// Caminho relativo à pasta listada, incluindo o nome.
     pub relative_path: String,
     pub path: String,
+    /// Tamanho em bytes.
+    pub size: u64,
     #[serde(flatten)]
     pub classification: Classification,
 }
@@ -39,8 +41,11 @@ fn walk(root: &Path, dir: &Path, classifier: &Classifier, files: &mut Vec<FileEn
         let Ok(file_type) = entry.file_type() else { continue };
         if file_type.is_dir() {
             walk(root, &path, classifier, files);
-        } else if file_type.is_file() || fs::metadata(&path).is_ok_and(|m| m.is_file()) {
+        } else if let Ok(meta) = fs::metadata(&path) // segue links simbólicos para arquivos
+            && meta.is_file()
+        {
             files.push(FileEntry {
+                size: meta.len(),
                 classification: classifier.classify(&name),
                 relative_path: path.strip_prefix(root).unwrap_or(&path).to_string_lossy().into_owned(),
                 path: path.to_string_lossy().into_owned(),
