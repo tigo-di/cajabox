@@ -16,6 +16,7 @@ use std::path::Path;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
+use tauri_plugin_opener::OpenerExt;
 
 use classify::Classifier;
 use config::Config;
@@ -196,6 +197,18 @@ fn drag_files(paths: Vec<String>, window: tauri::WebviewWindow, app: AppHandle) 
     })
 }
 
+/// Abre uma pasta no gerenciador de arquivos padrão. Feito no Rust para a interface não
+/// precisar de permissão do plugin opener para abrir caminhos quaisquer.
+#[tauri::command]
+fn open_folder(path: String, app: AppHandle) -> Result<(), String> {
+    if !Path::new(&path).is_dir() {
+        return Err(format!("Não foi possível encontrar o caminho: {path}"));
+    }
+    app.opener()
+        .open_path(&path, None::<&str>)
+        .map_err(|e| format!("Não foi possível abrir {path}: {e}"))
+}
+
 /// Encerra o programa.
 #[tauri::command]
 fn quit(app: AppHandle) {
@@ -218,7 +231,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(watch::FolderWatcher::default())
-        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, drag_files, quit])
+        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, drag_files, open_folder, quit])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

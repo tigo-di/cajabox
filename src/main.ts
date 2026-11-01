@@ -9,6 +9,7 @@ import { emptyFilters, isEmpty, matches, monthsOf, termKey, yearsOf, type YearFi
 import { openFoldersEditor } from "./folders-editor";
 import { openIndexEditor } from "./index-editor";
 import { openSettings } from "./settings";
+import { readSort, saveSort, sortFiles, toggleSort, type SortKey } from "./sort";
 import type { FileDate, FileEntry, Folder, State } from "./types";
 
 const LAST_FOLDER_KEY = "manabox.lastFolder";
@@ -31,6 +32,8 @@ type ClipboardFiles = { mode: "copy" | "cut"; paths: string[]; skipped: string[]
 const EMPTY_CLIPBOARD: ClipboardFiles = { mode: "copy", paths: [], skipped: [] };
 /** Espelho da área de transferência do sistema (arquivos copiados/recortados no manabox ou num gerenciador). */
 let clipboard = EMPTY_CLIPBOARD;
+
+let sort = readSort();
 
 /** Linha onde o botão do mouse foi pressionado (possível início de arrasto para fora). */
 let pressed: { file: FileEntry; x: number; y: number } | null = null;
@@ -89,6 +92,7 @@ function countLabel(shown: number, total: number): string {
 function renderHeader(shown: number | null) {
   const header = $("#folder-header");
   header.replaceChildren();
+  $("#searchbar").hidden = !current;
   if (!current) return;
   header.append(
     el(
@@ -98,8 +102,21 @@ function renderHeader(shown: number | null) {
       shown === null ? "" : el("span", { class: "count" }, countLabel(shown, files.length)),
     ),
     current.description ? el("p", { class: "desc" }, current.description) : "",
-    el("p", { class: "path" }, current.path),
+    el("p", { class: "path" }, folderLink(current)),
   );
+}
+
+/** Caminho da pasta: clique abre no gerenciador de arquivos. */
+function folderLink(folder: Folder) {
+  const link = button(folder.path, async () => {
+    try {
+      await invoke("open_folder", { path: folder.path });
+    } catch (error) {
+      await message(String(error), { title: "Abrir pasta", kind: "error" });
+    }
+  }, "link path-link");
+  link.title = "Abrir no gerenciador de arquivos";
+  return link;
 }
 
 function renderMessage(text: string, kind: "hint" | "error" = "hint") {
@@ -178,8 +195,25 @@ function renderToolbar() {
   }
 }
 
+/** Título de coluna ordenável: clique alterna a ordenação; seta mostra coluna e sentido ativos. */
+function sortHeader(label: string, key: SortKey) {
+  const active = sort.key === key;
+  const arrow = active ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
+  const th = el("th", { class: active ? "sortable sorted" : "sortable", title: "Ordenar" }, label + arrow);
+  if (active) th.setAttribute("aria-sort", sort.dir === "asc" ? "ascending" : "descending");
+  th.addEventListener("click", () => {
+    sort = toggleSort(sort, key);
+    saveSort(sort);
+    renderFiles();
+  });
+  return th;
+}
+
 function renderFiles() {
-  visible = files.filter((f) => matches(f, filters));
+  visible = sortFiles(
+    files.filter((f) => matches(f, filters)),
+    sort,
+  );
   const shown = new Set(visible.map((f) => f.path));
   selected = new Set([...selected].filter((p) => shown.has(p)));
   renderHeader(visible.length);
@@ -189,7 +223,7 @@ function renderFiles() {
     return;
   }
   if (visible.length === 0) {
-    renderMessage("Nenhum arquivo corresponde aos filtros.");
+    renderMessage("Nenhum arquivo corresponde aos filtros ou à busca.");
     return;
   }
   const body = el("tbody");
@@ -207,6 +241,7 @@ function renderFiles() {
     row.classList.toggle("cut", clipboard.mode === "cut" && clipboard.paths.includes(file.path));
     row.addEventListener("click", (event) => clickRow(file, event));
     row.addEventListener("mousedown", (event) => {
+      if (event.shiftKey) event.preventDefault(); // Shift+clique não estende seleção de texto pela página
       if (event.button === 0 && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
         pressed = { file, x: event.clientX, y: event.clientY };
       }
@@ -219,7 +254,7 @@ function renderFiles() {
     el(
       "thead",
       {},
-      el("tr", {}, el("th", {}, "Nome"), el("th", {}, "Subpasta"), el("th", {}, "Termos"), el("th", {}, "Data")),
+      el("tr", {}, sortHeader("Nome", "name"), el("th", {}, "Subpasta"), el("th", {}, "Termos"), sortHeader("Data", "date")),
     ),
     body,
   );
@@ -411,6 +446,13 @@ function onKeyDown(event: KeyboardEvent) {
     return;
   }
   const target = event.target as HTMLElement;
+  if (current && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f" && !document.querySelector("dialog[open]")) {
+    event.preventDefault();
+    const search = $<HTMLInputElement>("#search");
+    search.focus();
+    search.select();
+    return;
+  }
   if (!current || document.querySelector("dialog[open]") || target.closest("input, select, textarea")) return;
   const ctrl = event.ctrlKey || event.metaKey;
   const key = event.key.toLowerCase();
@@ -451,6 +493,8 @@ function renderFilters() {
   const panel = $("#filters");
   panel.replaceChildren();
   $("#clear-filters").hidden = isEmpty(filters);
+  const search = $<HTMLInputElement>("#search");
+  if (search.value !== filters.search) search.value = filters.search; // ex.: após "Limpar filtros"
   const sections = state?.index.sections ?? [];
   if (sections.length === 0) {
     panel.append(el("p", { class: "hint" }, "Índice vazio. Use “Editar índice” para criar seções e termos."));
@@ -552,6 +596,22 @@ async function init() {
   });
   $("#open-about").addEventListener("click", openAbout);
   $("#quit").addEventListener("click", quit);
+  const search = $<HTMLInputElement>("#search");
+  search.addEventListener("input", () => {
+    filters.search = search.value;
+    update();
+  });
+  search.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    if (search.value) {
+      search.value = "";
+      filters.search = "";
+      update();
+    } else {
+      search.blur(); // volta aos atalhos da lista
+    }
+  });
   $("#clear-filters").addEventListener("click", () => {
     filters = emptyFilters();
     update();

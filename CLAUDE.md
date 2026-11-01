@@ -29,6 +29,7 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 ## Interface (src)
 - `main.ts` — pastas, filtros, listagem, seleção, operações e atalhos
 - `filter.ts` — lógica pura dos filtros
+- `sort.ts` — ordenação da lista (nome/data)
 - `folders-editor.ts` / `index-editor.ts` / `settings.ts` — diálogos de edição e configurações
 - `about.ts` — diálogo "Sobre" (créditos, versão, licença)
 - `dom.ts` — helpers de DOM (textos sempre via textContent)
@@ -73,6 +74,12 @@ Uma pasta por linha: `nome|descrição|caminho absoluto`
 - Termos selecionados na mesma seção: E (arquivo precisa ter todos)
 - Entre seções: E
 - Datas: filtro por ano e mês
+- Busca: palavras no nome do arquivo (todas), sem diferenciar maiúsculas e acentos; soma-se aos filtros
+
+# Ordenação
+- Clique no título "Nome" ou "Data"; clicar de novo inverte; escolha lembrada
+- Nome: só o nome do arquivo, ordem natural (ep2 < ep10), sem diferenciar maiúsculas e acentos
+- Data: a data do nome; começa pelos mais recentes; sem data sempre no fim; empate pelo nome
 
 # Operações com arquivos
 - Copiar, recortar, colar, excluir, renomear arquivos das pastas listadas

@@ -8,20 +8,31 @@ export interface Filters {
   terms: Set<string>;
   year: YearFilter;
   month: number | null;
+  /** Texto buscado no nome do arquivo. */
+  search: string;
 }
 
 export const termKey = (section: number, term: number) => `${section}:${term}`;
 
 export function emptyFilters(): Filters {
-  return { terms: new Set(), year: null, month: null };
+  return { terms: new Set(), year: null, month: null, search: "" };
 }
 
 export function isEmpty(filters: Filters): boolean {
-  return filters.terms.size === 0 && filters.year === null && filters.month === null;
+  return filters.terms.size === 0 && filters.year === null && filters.month === null && filters.search.trim() === "";
 }
 
-/** Arquivo precisa ter todos os termos selecionados (E dentro da seção e entre seções) e a data escolhida. */
+/** Minúsculas e sem acentos, para comparar textos. */
+export const normalize = (text: string) => text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+
+/** Arquivo precisa ter todos os termos selecionados (E dentro da seção e entre seções), a data escolhida
+ * e todas as palavras da busca no nome. */
 export function matches(file: FileEntry, filters: Filters): boolean {
+  const words = normalize(filters.search).split(/\s+/).filter(Boolean);
+  if (words.length) {
+    const name = normalize(file.name);
+    if (!words.every((w) => name.includes(w))) return false;
+  }
   for (const key of filters.terms) {
     const [s, t] = key.split(":").map(Number);
     if (!file.terms[s]?.includes(t)) return false;
