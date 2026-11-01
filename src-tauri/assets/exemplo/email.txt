@@ -1,0 +1,14 @@
+E-mail de lançamento (exemplo)
+
+O manabox classifica os arquivos pelo nome.
+
+O nome é dividido em termos por hífen (-), sublinhado (_) ou espaço.
+Cada termo é procurado no índice (Editar índice): news, insta, promo...
+Sinônimos contam como o termo: newsletter = news, instagram = insta.
+
+Datas no nome: AAMMDD (241129 = 29/11/2024) ou AAMM (2412 = dez/2024),
+com ou sem v na frente (v250110 = 10/01/2025).
+
+Estes são arquivos de exemplo (.example antes da extensão).
+Quando não precisar mais, apague a pasta manabox-exemplo e
+remova as pastas de exemplo em Editar pastas.

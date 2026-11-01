@@ -49,6 +49,14 @@ pub fn default_dir() -> PathBuf {
 impl Config {
     /// Lê a configuração de `dir` e cria manabox.index.md e manabox.paths.md a partir dos modelos se não existirem.
     pub fn load(dir: &Path) -> io::Result<Config> {
+        let config = Config::locate(dir);
+        create_if_missing(&config.index, INDEX_TEMPLATE)?;
+        create_if_missing(&config.paths, PATHS_TEMPLATE)?;
+        Ok(config)
+    }
+
+    /// Onde estão manabox.index.md e manabox.paths.md (sem criar nada).
+    pub fn locate(dir: &Path) -> Config {
         let mut config = Config {
             index: dir.join(ConfigFile::Index.file_name()),
             paths: dir.join(ConfigFile::Paths.file_name()),
@@ -62,9 +70,7 @@ impl Config {
                 }
             }
         }
-        create_if_missing(&config.index, INDEX_TEMPLATE)?;
-        create_if_missing(&config.paths, PATHS_TEMPLATE)?;
-        Ok(config)
+        config
     }
 
     pub fn save(&self, dir: &Path) -> io::Result<()> {
