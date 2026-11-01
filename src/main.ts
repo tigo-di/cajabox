@@ -102,8 +102,21 @@ function renderHeader(shown: number | null) {
       shown === null ? "" : el("span", { class: "count" }, countLabel(shown, files.length)),
     ),
     current.description ? el("p", { class: "desc" }, current.description) : "",
-    el("p", { class: "path" }, current.path),
+    el("p", { class: "path" }, folderLink(current)),
   );
+}
+
+/** Caminho da pasta: clique abre no gerenciador de arquivos. */
+function folderLink(folder: Folder) {
+  const link = button(folder.path, async () => {
+    try {
+      await invoke("open_folder", { path: folder.path });
+    } catch (error) {
+      await message(String(error), { title: "Abrir pasta", kind: "error" });
+    }
+  }, "link path-link");
+  link.title = "Abrir no gerenciador de arquivos";
+  return link;
 }
 
 function renderMessage(text: string, kind: "hint" | "error" = "hint") {
