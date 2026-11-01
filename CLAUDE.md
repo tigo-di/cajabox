@@ -36,6 +36,7 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 - `filter.ts` — lógica pura dos filtros
 - `sort.ts` — ordenação da lista (nome/data)
 - `folders-editor.ts` / `index-editor.ts` / `settings.ts` — diálogos de edição e configurações
+- `save-config.ts` — salvar pelos editores com aviso se o arquivo mudou fora do programa
 - `about.ts` — diálogo "Sobre" (créditos, versão, licença)
 - `dom.ts` — helpers de DOM (textos sempre via textContent)
 - `types.ts` — tipos espelhando as structs do Rust
@@ -48,7 +49,7 @@ O programa gera manabox.index.md e manabox.paths.md (usando os samples como mode
 - `~/.config/manabox/config` guarda a localização atual de manabox.index.md e manabox.paths.md
 - O programa mostra onde eles estão salvos e permite movê-los
 - São editados dentro do programa; o usuário não precisa abrir os arquivos
-- Editados fora do programa (com ele aberto): recarregados sozinhos; pasta aberta e filtros marcados (pelo nome) mantidos
+- Editados fora do programa (com ele aberto): recarregados sozinhos; pasta aberta e filtros marcados (pelo nome) mantidos; salvar pelo editor interno depois disso pergunta antes de substituir
 - Blocos `<!-- -->` são comentários e ignorados na leitura
 
 ## manabox.paths.md

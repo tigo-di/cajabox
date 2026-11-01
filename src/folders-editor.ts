@@ -1,11 +1,11 @@
-import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { button, el } from "./dom";
+import { NOT_SAVED, saveConfig } from "./save-config";
 import type { Folder, State } from "./types";
 
 /** Abre o editor de pastas (manabox.paths.md); `onSaved` recebe o estado já gravado. */
-export function openFoldersEditor(folders: Folder[], onSaved: (state: State) => void) {
+export function openFoldersEditor(folders: Folder[], version: string, onSaved: (state: State) => void) {
   const rows = el("div", { class: "editor-rows" });
   const error = el("p", { class: "editor-error" });
 
@@ -40,7 +40,11 @@ export function openFoldersEditor(folders: Folder[], onSaved: (state: State) => 
   async function save() {
     error.textContent = "";
     try {
-      const state = await invoke<State>("save_folders", { folders: collect() });
+      const state = await saveConfig("save_folders", { folders: collect() }, version);
+      if (!state) {
+        error.textContent = NOT_SAVED;
+        return;
+      }
       dialog.close();
       onSaved(state);
     } catch (e) {

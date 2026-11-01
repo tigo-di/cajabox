@@ -29,6 +29,40 @@ struct State {
     default_dir: String,
     index: index::Index,
     folders: Vec<paths::Folder>,
+    /// Versão (hash do conteúdo) de cada arquivo lido: o editor interno a devolve ao salvar.
+    versions: Versions,
+}
+
+#[derive(Serialize)]
+struct Versions {
+    index: String,
+    paths: String,
+}
+
+/// Hash do conteúdo do arquivo, para saber se ele mudou desde que foi lido.
+fn version(path: &Path) -> Result<String, String> {
+    use std::hash::{Hash, Hasher};
+    let content = fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    content.hash(&mut hasher);
+    Ok(format!("{:016x}", hasher.finish()))
+}
+
+#[derive(Serialize)]
+#[serde(tag = "status", rename_all = "lowercase")]
+enum SaveResult {
+    Saved { state: State },
+    /// O arquivo mudou fora do programa desde a versão esperada; nada foi gravado.
+    Changed,
+}
+
+/// Grava `content` em `path` se o arquivo ainda está na versão `expected` (ou com `overwrite`).
+fn save_checked(path: &Path, content: String, expected: &str, overwrite: bool) -> Result<SaveResult, String> {
+    if !overwrite && version(path)? != expected {
+        return Ok(SaveResult::Changed);
+    }
+    fs::write(path, content).map_err(|e| format!("Erro ao gravar {}: {e}", path.display()))?;
+    Ok(SaveResult::Saved { state: load_state()? })
 }
 
 fn load() -> Result<(Config, index::Index), String> {
@@ -43,25 +77,25 @@ fn load_state() -> Result<State, String> {
     let (config, index) = load()?;
     let folders = paths::parse(&fs::read_to_string(&config.paths).map_err(|e| e.to_string())?);
     let default_dir = config::default_dir().display().to_string();
-    Ok(State { config, default_dir, index, folders })
+    let versions = Versions { index: version(&config.index)?, paths: version(&config.paths)? };
+    Ok(State { config, default_dir, index, folders, versions })
 }
 
-/// Grava a lista de pastas no manabox.paths.md e devolve o estado atualizado.
+/// Grava a lista de pastas no manabox.paths.md e devolve o estado atualizado. Se o arquivo mudou
+/// fora do programa desde `expected`, sem `overwrite` devolve `changed` sem gravar.
 #[tauri::command]
-fn save_folders(folders: Vec<paths::Folder>) -> Result<State, String> {
+fn save_folders(folders: Vec<paths::Folder>, expected: String, overwrite: bool) -> Result<SaveResult, String> {
     paths::validate(&folders)?;
     let (config, _) = load()?;
-    fs::write(&config.paths, paths::serialize(&folders)).map_err(|e| format!("Erro ao gravar {}: {e}", config.paths.display()))?;
-    load_state()
+    save_checked(&config.paths, paths::serialize(&folders), &expected, overwrite)
 }
 
-/// Grava o índice no manabox.index.md e devolve o estado atualizado (padrões recalculados na releitura).
+/// Grava o índice no manabox.index.md (padrões recalculados na releitura); conflito como em `save_folders`.
 #[tauri::command]
-fn save_index(index: index::Index) -> Result<State, String> {
+fn save_index(index: index::Index, expected: String, overwrite: bool) -> Result<SaveResult, String> {
     index::validate(&index)?;
     let (config, _) = load()?;
-    fs::write(&config.index, index::serialize(&index)).map_err(|e| format!("Erro ao gravar {}: {e}", config.index.display()))?;
-    load_state()
+    save_checked(&config.index, index::serialize(&index), &expected, overwrite)
 }
 
 #[derive(Serialize)]

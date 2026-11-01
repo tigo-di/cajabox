@@ -697,9 +697,9 @@ function applyState(next: State) {
 }
 
 async function init() {
-  $("#edit-folders").addEventListener("click", () => openFoldersEditor(state?.folders ?? [], applyState));
+  $("#edit-folders").addEventListener("click", () => openFoldersEditor(state?.folders ?? [], state?.versions.paths ?? "", applyState));
   $("#edit-index").addEventListener("click", () =>
-    openIndexEditor(state?.index.sections ?? [], (next) => {
+    openIndexEditor(state?.index.sections ?? [], state?.versions.index ?? "", (next) => {
       filters.terms.clear(); // posições dos termos podem ter mudado
       applyState(next);
     }),
