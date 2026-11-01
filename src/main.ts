@@ -102,20 +102,28 @@ function renderHeader(shown: number | null) {
       shown === null ? "" : el("span", { class: "count" }, countLabel(shown, files.length)),
     ),
     current.description ? el("p", { class: "desc" }, current.description) : "",
-    el("p", { class: "path" }, folderLink(current)),
+    el("p", { class: "path" }, folderLink(current.path, current.path)),
   );
 }
 
 /** Caminho da pasta: clique abre no gerenciador de arquivos. */
-function folderLink(folder: Folder) {
-  const link = button(folder.path, async () => {
+function folderLink(label: string, path: string) {
+  const link = button(label, async () => {
     try {
-      await invoke("open_folder", { path: folder.path });
+      await invoke("open_folder", { path });
     } catch (error) {
       await message(String(error), { title: "Abrir pasta", kind: "error" });
     }
   }, "link path-link");
   link.title = "Abrir no gerenciador de arquivos";
+  return link;
+}
+
+/** Subpasta do arquivo na lista: clique abre no gerenciador sem selecionar, arrastar nem abrir a linha. */
+function subdirLink(file: FileEntry) {
+  const subdir = file.relative_path.slice(0, file.relative_path.lastIndexOf("/"));
+  const link = folderLink(subdir, file.path.slice(0, file.path.lastIndexOf("/")));
+  for (const type of ["click", "mousedown", "dblclick"]) link.addEventListener(type, (event) => event.stopPropagation());
   return link;
 }
 
@@ -233,7 +241,7 @@ function renderFiles() {
       "tr",
       { title: file.path },
       el("td", { class: "name" }, file.name),
-      el("td", { class: "subdir" }, slash > 0 ? file.relative_path.slice(0, slash) : ""),
+      el("td", { class: "subdir" }, slash > 0 ? subdirLink(file) : ""),
       termChips(file),
       el("td", { class: "date" }, file.date ? formatDate(file.date) : ""),
     );
