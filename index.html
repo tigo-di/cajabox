@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>manabox</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+
+  <body>
+    <aside class="sidebar">
+      <div class="brand">manabox</div>
+      <div class="sidebar-title">
+        <h2>Pastas</h2>
+        <button id="edit-folders" class="link" type="button">Editar</button>
+      </div>
+      <nav id="folders"></nav>
+      <div class="sidebar-title filters-title">
+        <h2>Filtros</h2>
+        <span>
+          <button id="clear-filters" class="link" type="button" hidden>Limpar</button>
+          <button id="edit-index" class="link" type="button">Editar índice</button>
+        </span>
+      </div>
+      <div id="filters"></div>
+      <footer class="sidebar-footer">
+        <button id="open-settings" class="link" type="button">Configurações</button>
+      </footer>
+    </aside>
+
+    <main class="main">
+      <header id="folder-header"></header>
+      <div id="toolbar"></div>
+      <section id="content"></section>
+    </main>
+  </body>
+</html>
