@@ -96,3 +96,8 @@ Uma pasta por linha: `nome|descrição|caminho absoluto`
 - Excluir envia para a lixeira (não apaga definitivamente)
 - Colar sobre arquivo de mesmo nome: perguntar se quer substituir
 - Após renomear/mover, a classificação é recalculada
+
+# Duplicados
+- Modo na barra de ferramentas: por nome (sem diferenciar maiúsculas) ou por conteúdo, na pasta aberta com subpastas
+- Conteúdo: tamanho → amostra início/fim (64 kB) → BLAKE3 completo; cache em memória; vazios ignorados; progresso e cancelar
+- No modo: grupos com título e coluna Tamanho; filtros, busca e ordenação suspensos; operações normais
