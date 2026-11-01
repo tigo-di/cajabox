@@ -182,7 +182,7 @@ body {
   margin: 4px 0 0;
 }
 
-#folder-header button.path-link {
+button.link.path-link {
   padding: 0;
   font: inherit;
   color: inherit;
@@ -190,7 +190,7 @@ body {
   word-break: break-all;
 }
 
-#folder-header button.path-link:hover {
+button.link.path-link:hover {
   color: var(--accent);
   text-decoration: underline;
 }

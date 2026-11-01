@@ -102,20 +102,28 @@ function renderHeader(shown: number | null) {
       shown === null ? "" : el("span", { class: "count" }, countLabel(shown, files.length)),
     ),
     current.description ? el("p", { class: "desc" }, current.description) : "",
-    el("p", { class: "path" }, folderLink(current)),
+    el("p", { class: "path" }, folderLink(current.path, current.path)),
   );
 }
 
 /** Caminho da pasta: clique abre no gerenciador de arquivos. */
-function folderLink(folder: Folder) {
-  const link = button(folder.path, async () => {
+function folderLink(label: string, path: string) {
+  const link = button(label, async () => {
     try {
-      await invoke("open_folder", { path: folder.path });
+      await invoke("open_folder", { path });
     } catch (error) {
       await message(String(error), { title: "Abrir pasta", kind: "error" });
     }
   }, "link path-link");
   link.title = "Abrir no gerenciador de arquivos";
+  return link;
+}
+
+/** Subpasta do arquivo na lista: clique abre no gerenciador sem selecionar, arrastar nem abrir a linha. */
+function subdirLink(file: FileEntry) {
+  const subdir = file.relative_path.slice(0, file.relative_path.lastIndexOf("/"));
+  const link = folderLink(subdir, file.path.slice(0, file.path.lastIndexOf("/")));
+  for (const type of ["click", "mousedown", "dblclick"]) link.addEventListener(type, (event) => event.stopPropagation());
   return link;
 }
 
@@ -233,13 +241,14 @@ function renderFiles() {
       "tr",
       { title: file.path },
       el("td", { class: "name" }, file.name),
-      el("td", { class: "subdir" }, slash > 0 ? file.relative_path.slice(0, slash) : ""),
+      el("td", { class: "subdir" }, slash > 0 ? subdirLink(file) : ""),
       termChips(file),
       el("td", { class: "date" }, file.date ? formatDate(file.date) : ""),
     );
     row.classList.toggle("selected", selected.has(file.path));
     row.classList.toggle("cut", clipboard.mode === "cut" && clipboard.paths.includes(file.path));
     row.addEventListener("click", (event) => clickRow(file, event));
+    row.addEventListener("dblclick", () => openFiles([file.path]));
     row.addEventListener("mousedown", (event) => {
       if (event.shiftKey) event.preventDefault(); // Shift+clique não estende seleção de texto pela página
       if (event.button === 0 && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
@@ -280,6 +289,19 @@ async function reload() {
     $("#toolbar").replaceChildren();
     renderMessage(String(error), "error");
   }
+}
+
+/** Abre arquivos com o programa padrão do sistema; erros juntos num só aviso. */
+async function openFiles(paths: string[]) {
+  const errors: string[] = [];
+  for (const path of paths) {
+    try {
+      await invoke("open_file", { path });
+    } catch (error) {
+      errors.push(String(error));
+    }
+  }
+  if (errors.length) await message(errors.join("\n"), { title: "Abrir", kind: "error" });
 }
 
 async function renameSelected() {
@@ -457,6 +479,7 @@ function onKeyDown(event: KeyboardEvent) {
   const ctrl = event.ctrlKey || event.metaKey;
   const key = event.key.toLowerCase();
   if (event.key === "F2") renameSelected();
+  else if (event.key === "Enter" && selected.size && !target.closest("button")) openFiles(visible.filter((f) => selected.has(f.path)).map((f) => f.path));
   else if (event.key === "Delete") trashSelected();
   else if (ctrl && key === "c") toClipboard("copy");
   else if (ctrl && key === "x") toClipboard("cut");
