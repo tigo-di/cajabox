@@ -6,6 +6,7 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 # Tecnologia
 - Tauri (backend Rust, interface HTML/JS)
 - Sistema operacional: Ubuntu; distribuído como AppImage
+- Licença: GPL-3.0-or-later (LICENSE); autor Tiago Dias <tiago@webdeleve.net>
 - Desenvolvimento no host (Rust + libs do Tauri instalados localmente)
 - Build do AppImage dentro de container Docker com Ubuntu 22.04 (glibc antiga = AppImage compatível com mais sistemas)
 
@@ -20,6 +21,7 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 - `classify.rs` — termos e datas a partir do nome do arquivo
 - `scan.rs` — listagem recursiva de uma pasta
 - `config.rs` — localização de manabox.index.md e manabox.paths.md (mover, local padrão)
+- `clipboard.rs` — arquivos na área de transferência do sistema (GTK)
 - `fileops.rs` — renomear e mover arquivos
 - `watch.rs` — observa a pasta aberta e avisa a interface
 - `lib.rs` — comandos Tauri expostos à interface
@@ -28,6 +30,7 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 - `main.ts` — pastas, filtros, listagem, seleção, operações e atalhos
 - `filter.ts` — lógica pura dos filtros
 - `folders-editor.ts` / `index-editor.ts` / `settings.ts` — diálogos de edição e configurações
+- `about.ts` — diálogo "Sobre" (créditos, versão, licença)
 - `dom.ts` — helpers de DOM (textos sempre via textContent)
 - `types.ts` — tipos espelhando as structs do Rust
 
@@ -72,7 +75,9 @@ Uma pasta por linha: `nome|descrição|caminho absoluto`
 - Datas: filtro por ano e mês
 
 # Operações com arquivos
-- Recortar, colar, excluir, renomear arquivos das pastas listadas
+- Copiar, recortar, colar, excluir, renomear arquivos das pastas listadas
+- Cópia pode ser colada várias vezes; recorte, uma vez
+- Copiar/recortar/colar usam a área de transferência do sistema (troca com qualquer gerenciador de arquivos): `x-special/gnome-copied-files` (Nautilus, Nemo, Caja, Thunar), `text/uri-list` + `application/x-kde-cutselection` (Dolphin) e texto com os caminhos; pastas são ignoradas com aviso
 - Excluir envia para a lixeira (não apaga definitivamente)
 - Colar sobre arquivo de mesmo nome: perguntar se quer substituir
 - Após renomear/mover, a classificação é recalculada

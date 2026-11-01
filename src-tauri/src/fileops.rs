@@ -2,9 +2,10 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+/// Resultado de mover ou copiar.
 #[derive(Debug, PartialEq)]
-pub enum MoveOutcome {
-    Moved(PathBuf),
+pub enum Outcome {
+    Done(PathBuf),
     /// Já existe um arquivo com o mesmo nome no destino; nada foi alterado.
     Exists(PathBuf),
 }
@@ -37,20 +38,45 @@ pub fn rename(path: &Path, new_name: &str) -> Result<PathBuf, String> {
     Ok(to)
 }
 
+fn file_name(path: &Path) -> io::Result<&std::ffi::OsStr> {
+    path.file_name()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "caminho sem nome de arquivo"))
+}
+
 /// Move um arquivo para `dest_dir`, mantendo o nome. Sem `overwrite`, conflito volta como `Exists`.
-pub fn move_to(path: &Path, dest_dir: &Path, overwrite: bool) -> io::Result<MoveOutcome> {
-    let name = path
-        .file_name()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "caminho sem nome de arquivo"))?;
-    let to = dest_dir.join(name);
+pub fn move_to(path: &Path, dest_dir: &Path, overwrite: bool) -> io::Result<Outcome> {
+    let to = dest_dir.join(file_name(path)?);
     if to.exists() && fs::canonicalize(&to)? == fs::canonicalize(path)? {
-        return Ok(MoveOutcome::Moved(to));
+        return Ok(Outcome::Done(to));
     }
     if to.exists() && !overwrite {
-        return Ok(MoveOutcome::Exists(to));
+        return Ok(Outcome::Exists(to));
     }
     move_path(path, &to)?;
-    Ok(MoveOutcome::Moved(to))
+    Ok(Outcome::Done(to))
+}
+
+/// Copia um arquivo para `dest_dir`, mantendo o nome. Sem `overwrite`, conflito volta como `Exists`.
+/// Copia primeiro para um arquivo oculto temporário no destino e depois renomeia: o destino nunca
+/// fica pela metade. Copiar um arquivo sobre ele mesmo é recusado.
+pub fn copy_to(path: &Path, dest_dir: &Path, overwrite: bool) -> io::Result<Outcome> {
+    let name = file_name(path)?;
+    let to = dest_dir.join(name);
+    if to.exists() && fs::canonicalize(&to)? == fs::canonicalize(path)? {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "origem e destino são o mesmo arquivo"));
+    }
+    if to.exists() && !overwrite {
+        return Ok(Outcome::Exists(to));
+    }
+    let mut temp_name = std::ffi::OsString::from(".");
+    temp_name.push(name);
+    temp_name.push(".manabox-tmp");
+    let temp = dest_dir.join(temp_name);
+    if let Err(e) = fs::copy(path, &temp).and_then(|_| fs::rename(&temp, &to)) {
+        let _ = fs::remove_file(&temp);
+        return Err(e);
+    }
+    Ok(Outcome::Done(to))
 }
 
 #[cfg(test)]
@@ -92,16 +118,47 @@ mod tests {
         fs::write(&b, "b").unwrap();
         fs::write(dest.join("a.txt"), "antigo").unwrap();
 
-        assert_eq!(move_to(&b, &dest, false).unwrap(), MoveOutcome::Moved(dest.join("b.txt")));
+        assert_eq!(move_to(&b, &dest, false).unwrap(), Outcome::Done(dest.join("b.txt")));
         assert!(!b.exists());
 
-        assert_eq!(move_to(&a, &dest, false).unwrap(), MoveOutcome::Exists(dest.join("a.txt")));
+        assert_eq!(move_to(&a, &dest, false).unwrap(), Outcome::Exists(dest.join("a.txt")));
         assert_eq!(fs::read_to_string(dest.join("a.txt")).unwrap(), "antigo");
         assert!(a.exists());
 
-        assert_eq!(move_to(&a, &dest, true).unwrap(), MoveOutcome::Moved(dest.join("a.txt")));
+        assert_eq!(move_to(&a, &dest, true).unwrap(), Outcome::Done(dest.join("a.txt")));
         assert_eq!(fs::read_to_string(dest.join("a.txt")).unwrap(), "novo");
         assert!(!a.exists());
+    }
+
+    #[test]
+    fn copy_keeps_original_and_handles_conflicts() {
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("dest");
+        fs::create_dir(&dest).unwrap();
+        let a = dir.path().join("a b ção.txt");
+        fs::write(&a, "novo").unwrap();
+
+        assert_eq!(copy_to(&a, &dest, false).unwrap(), Outcome::Done(dest.join("a b ção.txt")));
+        assert_eq!(fs::read_to_string(dest.join("a b ção.txt")).unwrap(), "novo");
+        assert!(a.exists());
+
+        fs::write(dest.join("a b ção.txt"), "antigo").unwrap();
+        assert_eq!(copy_to(&a, &dest, false).unwrap(), Outcome::Exists(dest.join("a b ção.txt")));
+        assert_eq!(fs::read_to_string(dest.join("a b ção.txt")).unwrap(), "antigo");
+
+        assert_eq!(copy_to(&a, &dest, true).unwrap(), Outcome::Done(dest.join("a b ção.txt")));
+        assert_eq!(fs::read_to_string(dest.join("a b ção.txt")).unwrap(), "novo");
+        assert_eq!(fs::read_dir(&dest).unwrap().count(), 1, "temporário removido");
+    }
+
+    #[test]
+    fn copy_onto_itself_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = dir.path().join("a.txt");
+        fs::write(&a, "x").unwrap();
+        assert!(copy_to(&a, dir.path(), true).is_err());
+        assert_eq!(fs::read_to_string(&a).unwrap(), "x");
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
     }
 
     #[test]
@@ -109,7 +166,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let a = dir.path().join("a.txt");
         fs::write(&a, "x").unwrap();
-        assert_eq!(move_to(&a, dir.path(), false).unwrap(), MoveOutcome::Moved(a.clone()));
+        assert_eq!(move_to(&a, dir.path(), false).unwrap(), Outcome::Done(a.clone()));
         assert!(a.exists());
     }
 }

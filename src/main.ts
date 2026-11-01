@@ -1,8 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { ask, message, open } from "@tauri-apps/plugin-dialog";
 
-import { $, button, el, promptText } from "./dom";
+import { openAbout } from "./about";
+import { $, button, choose, el, promptText } from "./dom";
 import { emptyFilters, isEmpty, matches, monthsOf, termKey, yearsOf, type YearFilter } from "./filter";
 import { openFoldersEditor } from "./folders-editor";
 import { openIndexEditor } from "./index-editor";
@@ -25,10 +27,17 @@ let visible: FileEntry[] = [];
 let selected = new Set<string>();
 /** Âncora do Shift+clique. */
 let anchor: string | null = null;
-/** Caminhos recortados; persistem ao trocar de pasta. */
-let clipboard: string[] = [];
+type ClipboardFiles = { mode: "copy" | "cut"; paths: string[]; skipped: string[] };
+const EMPTY_CLIPBOARD: ClipboardFiles = { mode: "copy", paths: [], skipped: [] };
+/** Espelho da área de transferência do sistema (arquivos copiados/recortados no manabox ou num gerenciador). */
+let clipboard = EMPTY_CLIPBOARD;
 
-type FileMoveResult = { status: "moved" | "exists"; path: string };
+/** Linha onde o botão do mouse foi pressionado (possível início de arrasto para fora). */
+let pressed: { file: FileEntry; x: number; y: number } | null = null;
+/** Arrasto para fora em andamento: soltar na própria janela é ignorado. */
+let draggingOut = false;
+
+type FileResult = { status: "done" | "exists"; path: string };
 
 function formatDate(date: FileDate): string {
   const mm = String(date.month).padStart(2, "0");
@@ -131,34 +140,38 @@ function clickRow(file: FileEntry, event: MouseEvent) {
 function renderToolbar() {
   const bar = $("#toolbar");
   bar.replaceChildren();
-  if (!current || (files.length === 0 && clipboard.length === 0)) return;
+  if (!current || (files.length === 0 && clipboard.paths.length === 0)) return;
 
   const count = selected.size;
   const rename = button("Renomear", renameSelected);
   rename.disabled = count !== 1;
   rename.title = "F2";
-  const cut = button("Recortar", cutSelected);
+  const copy = button("Copiar", () => toClipboard("copy"));
+  copy.disabled = count === 0;
+  copy.title = "Ctrl+C";
+  const cut = button("Recortar", () => toClipboard("cut"));
   cut.disabled = count === 0;
   cut.title = "Ctrl+X";
   const remove = button("Excluir", trashSelected, "danger");
   remove.disabled = count === 0;
   remove.title = "Delete";
   const info = count ? `${count} ${count === 1 ? "selecionado" : "selecionados"}` : "Nenhum selecionado";
-  bar.append(el("div", { class: "toolbar-group" }, el("span", { class: "toolbar-info" }, info), rename, cut, remove));
+  bar.append(el("div", { class: "toolbar-group" }, el("span", { class: "toolbar-info" }, info), rename, copy, cut, remove));
 
-  if (clipboard.length) {
+  const pending = clipboard.paths.length;
+  if (pending) {
+    const label = clipboard.mode === "copy" ? ["copiado", "copiados"] : ["recortado", "recortados"];
     const here = button("Colar aqui", () => current && paste(current.path), "primary");
     here.title = "Ctrl+V — na raiz da pasta aberta";
     bar.append(
       el(
         "div",
         { class: "toolbar-group" },
-        el("span", { class: "toolbar-info" }, `${clipboard.length} ${clipboard.length === 1 ? "recortado" : "recortados"}`),
+        el("span", { class: "toolbar-info" }, `${pending} ${label[pending === 1 ? 0 : 1]}`),
         here,
         button("Colar em…", pasteInto),
         button("Cancelar", () => {
-          clipboard = [];
-          renderFiles();
+          setClipboard([], "copy");
         }),
       ),
     );
@@ -191,8 +204,13 @@ function renderFiles() {
       el("td", { class: "date" }, file.date ? formatDate(file.date) : ""),
     );
     row.classList.toggle("selected", selected.has(file.path));
-    row.classList.toggle("cut", clipboard.includes(file.path));
+    row.classList.toggle("cut", clipboard.mode === "cut" && clipboard.paths.includes(file.path));
     row.addEventListener("click", (event) => clickRow(file, event));
+    row.addEventListener("mousedown", (event) => {
+      if (event.button === 0 && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
+        pressed = { file, x: event.clientX, y: event.clientY };
+      }
+    });
     body.append(row);
   }
   const table = el(
@@ -238,7 +256,9 @@ async function renameSelected() {
   if (newName === null || newName === name) return;
   try {
     const newPath = await invoke<string>("rename_file", { path, newName });
-    clipboard = clipboard.map((p) => (p === path ? newPath : p));
+    if (clipboard.paths.includes(path)) {
+      await setClipboard(clipboard.paths.map((p) => (p === path ? newPath : p)), clipboard.mode);
+    }
     selected = new Set([newPath]);
     anchor = newPath;
   } catch (error) {
@@ -247,10 +267,31 @@ async function renameSelected() {
   await reload();
 }
 
-function cutSelected() {
-  if (selected.size === 0) return;
-  clipboard = [...selected];
+/** Lê a área de transferência do sistema (pode ter mudado em outro programa). */
+async function refreshClipboard() {
+  try {
+    clipboard = (await invoke<ClipboardFiles | null>("clipboard_get")) ?? EMPTY_CLIPBOARD;
+  } catch (error) {
+    console.error(error);
+    clipboard = EMPTY_CLIPBOARD;
+  }
+  if (current) renderFiles();
+}
+
+/** Grava (ou, sem caminhos, esvazia) a área de transferência do sistema. */
+async function setClipboard(paths: string[], mode: "copy" | "cut") {
+  try {
+    if (paths.length) await invoke("clipboard_set", { paths, mode });
+    else await invoke("clipboard_clear");
+    clipboard = { mode, paths, skipped: [] };
+  } catch (error) {
+    await message(String(error), { title: "Área de transferência", kind: "error" });
+  }
   renderFiles();
+}
+
+function toClipboard(mode: "copy" | "cut") {
+  if (selected.size) setClipboard([...selected], mode);
 }
 
 async function trashSelected() {
@@ -260,7 +301,9 @@ async function trashSelected() {
   if (!(await ask(`Enviar ${what} para a lixeira?`, { title: "Excluir", kind: "warning" }))) return;
   try {
     await invoke("trash_files", { paths });
-    clipboard = clipboard.filter((p) => !paths.includes(p));
+    if (clipboard.paths.some((p) => paths.includes(p))) {
+      await setClipboard(clipboard.paths.filter((p) => !paths.includes(p)), clipboard.mode);
+    }
     selected.clear();
   } catch (error) {
     await message(String(error), { title: "Excluir", kind: "error" });
@@ -268,27 +311,87 @@ async function trashSelected() {
   await reload();
 }
 
-/** Move os recortados para `dest`; em conflito pergunta por arquivo se substitui. */
-async function paste(dest: string) {
+async function warnSkipped(skipped: string[]) {
+  if (skipped.length) await message(`Só arquivos podem ser colados. Ignorados:\n${skipped.join("\n")}`, { title: "Colar", kind: "warning" });
+}
+
+/** Copia ou move `paths` para `dest`; em conflito pergunta por arquivo se substitui. */
+async function transfer(paths: string[], mode: "copy" | "cut", dest: string) {
+  const command = mode === "copy" ? "copy_file" : "move_file";
   const errors: string[] = [];
-  const moved: string[] = [];
-  for (const path of clipboard) {
+  const pasted: string[] = [];
+  for (const path of paths) {
     try {
-      let result = await invoke<FileMoveResult>("move_file", { path, destDir: dest, overwrite: false });
+      let result = await invoke<FileResult>(command, { path, destDir: dest, overwrite: false });
       if (result.status === "exists") {
         const replace = await ask(`Já existe ${result.path}.\nSubstituir?`, { title: "Arquivo já existe", kind: "warning" });
         if (!replace) continue;
-        result = await invoke<FileMoveResult>("move_file", { path, destDir: dest, overwrite: true });
+        result = await invoke<FileResult>(command, { path, destDir: dest, overwrite: true });
       }
-      moved.push(result.path);
+      pasted.push(result.path);
     } catch (error) {
       errors.push(String(error));
     }
   }
-  clipboard = [];
-  selected = new Set(moved);
+  selected = new Set(pasted);
   if (errors.length) await message(errors.join("\n"), { title: "Colar", kind: "error" });
   await reload();
+}
+
+/** Cola a área de transferência em `dest`. Recorte é colado uma vez só; cópia pode ser colada de novo. */
+async function paste(dest: string) {
+  await refreshClipboard();
+  await warnSkipped(clipboard.skipped);
+  if (clipboard.paths.length === 0) return;
+  const { paths, mode } = clipboard;
+  if (mode === "cut") await setClipboard([], "copy"); // recorte colado sai da área de transferência
+  await transfer(paths, mode, dest);
+}
+
+/** Itens soltos na janela (arrastados de um gerenciador de arquivos): copiar ou mover para a pasta aberta. */
+async function dropFiles(dropped: string[]) {
+  const folder = current;
+  if (!folder || dropped.length === 0 || document.querySelector("dialog[open]")) return;
+  const { paths, skipped } = await invoke<{ paths: string[]; skipped: string[] }>("split_files", { paths: dropped });
+  await warnSkipped(skipped);
+  if (paths.length === 0) return;
+  const what = paths.length === 1 ? `“${paths[0].slice(paths[0].lastIndexOf("/") + 1)}”` : `${paths.length} arquivos`;
+  const choice = await choose("Soltar arquivos", `${what} em ${folder.name}`, ["Copiar aqui", "Mover aqui"]);
+  if (choice) await transfer(paths, choice === "Copiar aqui" ? "copy" : "cut", folder.path);
+}
+
+/** Arrasta a seleção (ou só a linha, se não estiver selecionada) para outro programa. */
+async function dragOut(file: FileEntry) {
+  if (!selected.has(file.path)) {
+    selected = new Set([file.path]);
+    anchor = file.path;
+    renderFiles();
+  }
+  const paths = visible.filter((f) => selected.has(f.path)).map((f) => f.path);
+  draggingOut = true;
+  try {
+    await invoke("drag_files", { paths });
+  } catch (error) {
+    draggingOut = false;
+    console.error(error);
+  }
+}
+
+function onMouseMove(event: MouseEvent) {
+  if (!pressed) return;
+  if (!(event.buttons & 1)) {
+    pressed = null;
+  } else if (Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > 6) {
+    const { file } = pressed;
+    pressed = null;
+    dragOut(file);
+  }
+}
+
+function setDropHighlight(on: boolean) {
+  const content = $("#content");
+  content.classList.toggle("drop-target", on && !!current && !content.querySelector(".message.error"));
+  if (current) content.dataset.drop = `Soltar em ${current.name}`;
 }
 
 async function pasteInto() {
@@ -297,15 +400,25 @@ async function pasteInto() {
 }
 
 /** Atalhos da listagem; ignorados com diálogo aberto ou foco em campo de texto. */
+function quit() {
+  invoke("quit");
+}
+
 function onKeyDown(event: KeyboardEvent) {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "q") {
+    event.preventDefault();
+    quit(); // vale também com diálogo aberto ou campo em foco
+    return;
+  }
   const target = event.target as HTMLElement;
   if (!current || document.querySelector("dialog[open]") || target.closest("input, select, textarea")) return;
   const ctrl = event.ctrlKey || event.metaKey;
   const key = event.key.toLowerCase();
   if (event.key === "F2") renameSelected();
   else if (event.key === "Delete") trashSelected();
-  else if (ctrl && key === "x") cutSelected();
-  else if (ctrl && key === "v" && clipboard.length) paste(current.path);
+  else if (ctrl && key === "c") toClipboard("copy");
+  else if (ctrl && key === "x") toClipboard("cut");
+  else if (ctrl && key === "v") paste(current.path);
   else if (ctrl && key === "a") {
     selected = new Set(visible.map((f) => f.path));
     renderFiles();
@@ -437,16 +550,29 @@ async function init() {
   $("#open-settings").addEventListener("click", () => {
     if (state) openSettings(state, applyState);
   });
+  $("#open-about").addEventListener("click", openAbout);
+  $("#quit").addEventListener("click", quit);
   $("#clear-filters").addEventListener("click", () => {
     filters = emptyFilters();
     update();
   });
   document.addEventListener("keydown", onKeyDown);
+  window.addEventListener("focus", refreshClipboard); // o usuário pode ter copiado no gerenciador de arquivos
+  await getCurrentWebview().onDragDropEvent((event) => {
+    const { type } = event.payload;
+    if (draggingOut) return setDropHighlight(false); // arrasto saindo do próprio manabox
+    setDropHighlight(type === "enter" || type === "over");
+    if (type === "drop") dropFiles(event.payload.paths);
+  });
+  document.addEventListener("mousemove", onMouseMove);
+  document.addEventListener("mouseup", () => (pressed = null));
+  await listen("drag-out-ended", () => (draggingOut = false));
   await listen<string>("folder-changed", (event) => {
     if (event.payload === current?.path) reload();
   });
   try {
     applyState(await invoke<State>("load_state"));
+    refreshClipboard();
   } catch (error) {
     renderMessage(`Erro ao carregar configuração: ${error}`, "error");
   }

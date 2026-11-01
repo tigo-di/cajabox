@@ -1,5 +1,8 @@
 mod classify;
+mod clipboard;
 mod config;
+#[cfg(target_os = "linux")]
+mod dragout;
 mod fileops;
 mod index;
 mod markdown;
@@ -93,19 +96,34 @@ fn trash_files(paths: Vec<String>) -> Result<(), String> {
 
 #[derive(Serialize)]
 #[serde(tag = "status", rename_all = "lowercase")]
-enum FileMoveResult {
-    Moved { path: String },
+enum FileResult {
+    Done { path: String },
     Exists { path: String },
+}
+
+impl From<fileops::Outcome> for FileResult {
+    fn from(outcome: fileops::Outcome) -> Self {
+        match outcome {
+            fileops::Outcome::Done(to) => FileResult::Done { path: to.display().to_string() },
+            fileops::Outcome::Exists(to) => FileResult::Exists { path: to.display().to_string() },
+        }
+    }
 }
 
 /// Move um arquivo para outra pasta. Sem `overwrite`, conflito volta como `exists`.
 #[tauri::command]
-fn move_file(path: String, dest_dir: String, overwrite: bool) -> Result<FileMoveResult, String> {
-    match fileops::move_to(Path::new(&path), Path::new(&dest_dir), overwrite) {
-        Ok(fileops::MoveOutcome::Moved(to)) => Ok(FileMoveResult::Moved { path: to.display().to_string() }),
-        Ok(fileops::MoveOutcome::Exists(to)) => Ok(FileMoveResult::Exists { path: to.display().to_string() }),
-        Err(e) => Err(format!("Erro ao mover {path}: {e}")),
-    }
+fn move_file(path: String, dest_dir: String, overwrite: bool) -> Result<FileResult, String> {
+    fileops::move_to(Path::new(&path), Path::new(&dest_dir), overwrite)
+        .map(FileResult::from)
+        .map_err(|e| format!("Erro ao mover {path}: {e}"))
+}
+
+/// Copia um arquivo para outra pasta. Sem `overwrite`, conflito volta como `exists`.
+#[tauri::command]
+fn copy_file(path: String, dest_dir: String, overwrite: bool) -> Result<FileResult, String> {
+    fileops::copy_to(Path::new(&path), Path::new(&dest_dir), overwrite)
+        .map(FileResult::from)
+        .map_err(|e| format!("Erro ao copiar {path}: {e}"))
 }
 
 /// Passa a observar `path` (e para a pasta anterior); mudanças emitem o evento `folder-changed` com o caminho.
@@ -115,6 +133,73 @@ fn watch_folder(path: String, app: AppHandle, watcher: tauri::State<'_, watch::F
     watcher.watch(Path::new(&path), move || {
         let _ = app.emit("folder-changed", &changed);
     })
+}
+
+#[derive(Serialize)]
+struct FileList {
+    /// Arquivos existentes.
+    paths: Vec<String>,
+    /// Pastas e caminhos inexistentes (o manabox opera só arquivos).
+    skipped: Vec<String>,
+}
+
+impl FileList {
+    fn new(paths: impl IntoIterator<Item = std::path::PathBuf>) -> Self {
+        let (files, skipped): (Vec<_>, Vec<_>) = paths.into_iter().partition(|p| p.is_file());
+        let text = |paths: Vec<std::path::PathBuf>| paths.iter().map(|p| p.display().to_string()).collect();
+        FileList { paths: text(files), skipped: text(skipped) }
+    }
+}
+
+/// Separa arquivos de pastas e caminhos inexistentes (ex.: itens soltos na janela).
+#[tauri::command]
+fn split_files(paths: Vec<String>) -> FileList {
+    FileList::new(paths.into_iter().map(Into::into))
+}
+
+#[derive(Serialize)]
+struct ClipboardFiles {
+    mode: clipboard::Mode,
+    #[serde(flatten)]
+    files: FileList,
+}
+
+/// Coloca arquivos na área de transferência do sistema (copiar ou recortar).
+/// Síncrono de propósito: roda na thread principal, exigida pelo GTK.
+#[tauri::command]
+fn clipboard_set(paths: Vec<String>, mode: clipboard::Mode) -> Result<(), String> {
+    clipboard::system::set(clipboard::Contents { mode, paths: paths.into_iter().map(Into::into).collect() })
+}
+
+/// Arquivos na área de transferência do sistema, vindos do manabox ou de um gerenciador de arquivos.
+#[tauri::command]
+fn clipboard_get() -> Option<ClipboardFiles> {
+    let contents = clipboard::system::get()?;
+    Some(ClipboardFiles { mode: contents.mode, files: FileList::new(contents.paths) })
+}
+
+/// Esvazia a área de transferência do sistema.
+#[tauri::command]
+fn clipboard_clear() {
+    clipboard::system::clear();
+}
+
+/// Inicia o arrasto de arquivos para outro programa; emite `drag-out-ended` ao terminar.
+/// Síncrono de propósito: roda na thread principal, exigida pelo GTK.
+#[cfg(target_os = "linux")]
+#[tauri::command]
+fn drag_files(paths: Vec<String>, window: tauri::WebviewWindow, app: AppHandle) -> Result<(), String> {
+    let gtk_window = window.gtk_window().map_err(|e| e.to_string())?;
+    let paths: Vec<std::path::PathBuf> = paths.into_iter().map(Into::into).collect();
+    dragout::start(&gtk_window, &paths, move || {
+        let _ = app.emit("drag-out-ended", ());
+    })
+}
+
+/// Encerra o programa.
+#[tauri::command]
+fn quit(app: AppHandle) {
+    app.exit(0);
 }
 
 /// Arquivos classificados de uma pasta.
@@ -133,7 +218,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(watch::FolderWatcher::default())
-        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, watch_folder])
+        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, drag_files, quit])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

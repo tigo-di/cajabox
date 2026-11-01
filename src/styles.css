@@ -76,6 +76,8 @@ body {
 .sidebar-footer {
   margin-top: auto;
   padding-top: 20px;
+  display: flex;
+  justify-content: space-between;
 }
 
 .brand {
@@ -183,6 +185,23 @@ body {
 #content {
   flex: 1;
   overflow: auto;
+}
+
+#content.drop-target {
+  outline: 2px dashed var(--accent);
+  outline-offset: -8px;
+  background: var(--accent-soft);
+}
+
+#content.drop-target::before {
+  content: attr(data-drop);
+  position: sticky;
+  top: 0;
+  display: block;
+  padding: 10px 16px;
+  font-weight: 600;
+  color: var(--accent);
+  text-align: center;
 }
 
 .message {
@@ -487,6 +506,24 @@ dialog.editor .hint {
 }
 
 /* Configurações */
+
+dialog.about {
+  width: min(480px, calc(100vw - 48px));
+}
+
+dialog.about p {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+dialog.about .about-version {
+  color: var(--muted);
+}
+
+dialog.about button.link {
+  padding: 0;
+  font-size: inherit;
+}
 
 dialog.settings {
   width: min(640px, calc(100vw - 48px));

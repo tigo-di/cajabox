@@ -37,6 +37,27 @@ export function promptText(title: string, value: string, selectUntil = value.len
   });
 }
 
+/** Diálogo com uma mensagem e botões; resolve com o rótulo escolhido ou `null` (Cancelar/Esc). */
+export function choose(title: string, text: string, options: string[]): Promise<string | null> {
+  return new Promise((resolve) => {
+    const dialog = el("dialog", { class: "editor prompt" }, el("h2", {}, title), el("p", {}, text));
+    let result: string | null = null;
+    const pick = (label: string) => () => {
+      result = label;
+      dialog.close();
+    };
+    const buttons = options.map((label, i) => button(label, pick(label), i === 0 ? "primary" : ""));
+    dialog.append(el("div", { class: "editor-actions" }, button("Cancelar", () => dialog.close()), ...buttons));
+    dialog.addEventListener("close", () => {
+      dialog.remove();
+      resolve(result);
+    });
+    document.body.append(dialog);
+    dialog.showModal();
+    buttons[0]?.focus();
+  });
+}
+
 export function button(label: string, onClick: () => void, className = ""): HTMLButtonElement {
   const node = el("button", { type: "button", class: className }, label);
   node.addEventListener("click", onClick);

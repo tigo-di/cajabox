@@ -1,7 +1,19 @@
-# Tauri + Vanilla TS
+# manabox
 
-This template should help get you started developing with Tauri in vanilla HTML, CSS and Typescript.
+Gerenciamento de conteúdo (news, vídeos, stories etc.) para Ubuntu.
 
-## Recommended IDE Setup
+Lista os arquivos de pastas cadastradas e permite filtrá-los pelos termos e datas presentes nos nomes, conforme um índice editável dentro do programa. Também renomeia, recorta, cola e envia arquivos para a lixeira.
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+## Desenvolvimento
+
+- `pnpm tauri dev` — roda o app
+- `cd src-tauri && cargo test` — testes do núcleo
+- `pnpm build` — checagem de tipos e build da interface
+
+Detalhes da especificação em [CLAUDE.md](CLAUDE.md).
+
+## Autoria e licença
+
+© 2026 Tiago Dias — tiago@webdeleve.net
+
+Software livre sob a [GNU General Public License v3.0 ou posterior](LICENSE): pode ser usado, alterado, distribuído e vendido; versões derivadas devem manter os créditos e a mesma licença.
