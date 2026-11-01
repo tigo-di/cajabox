@@ -2,6 +2,7 @@ mod classify;
 mod clipboard;
 mod config;
 mod duplicates;
+mod examples;
 #[cfg(target_os = "linux")]
 mod dragout;
 mod fileops;
@@ -32,6 +33,8 @@ struct State {
     folders: Vec<paths::Folder>,
     /// Versão (hash do conteúdo) de cada arquivo lido: o editor interno a devolve ao salvar.
     versions: Versions,
+    /// Pasta das pastas de exemplo (aviso na interface).
+    example_dir: String,
 }
 
 #[derive(Serialize)]
@@ -79,7 +82,8 @@ fn load_state() -> Result<State, String> {
     let folders = paths::parse(&fs::read_to_string(&config.paths).map_err(|e| e.to_string())?);
     let default_dir = config::default_dir().display().to_string();
     let versions = Versions { index: version(&config.index)?, paths: version(&config.paths)? };
-    Ok(State { config, default_dir, index, folders, versions })
+    let example_dir = examples::base_dir().display().to_string();
+    Ok(State { config, default_dir, index, folders, versions, example_dir })
 }
 
 /// Grava a lista de pastas no manabox.paths.md e devolve o estado atualizado. Se o arquivo mudou
@@ -264,6 +268,20 @@ fn open_file(path: String) -> Result<(), String> {
     launch::open(Path::new(&path)).map_err(|e| format!("Não foi possível abrir {path}: {e}"))
 }
 
+/// Cria as pastas de exemplo e acrescenta à configuração o que falta (nada é sobrescrito).
+#[tauri::command]
+fn create_examples() -> Result<State, String> {
+    let (config, mut index) = load()?;
+    let mut folders = paths::parse(&fs::read_to_string(&config.paths).map_err(|e| e.to_string())?);
+    let base = examples::base_dir();
+    examples::install(&base, &mut index, &mut folders).map_err(|e| format!("Erro ao criar {}: {e}", base.display()))?;
+    index::validate(&index)?;
+    paths::validate(&folders)?;
+    fs::write(&config.index, index::serialize(&index)).map_err(|e| format!("Erro ao gravar {}: {e}", config.index.display()))?;
+    fs::write(&config.paths, paths::serialize(&folders)).map_err(|e| format!("Erro ao gravar {}: {e}", config.paths.display()))?;
+    load_state()
+}
+
 /// Encerra o programa.
 #[tauri::command]
 fn quit(app: AppHandle) {
@@ -321,12 +339,20 @@ pub fn run() {
         .manage(watch::ConfigWatcher::default())
         .manage(duplicates::Search::default())
         .setup(|app| {
+            // primeira execução (sem índice nem pastas): pastas de exemplo para ver o programa funcionando
+            let located = Config::locate(&config::default_dir());
+            if !located.index.exists()
+                && !located.paths.exists()
+                && let Err(error) = create_examples()
+            {
+                eprintln!("{error}");
+            }
             if let Err(error) = watch_config(app.handle()) {
                 eprintln!("{error}"); // sem observação o programa funciona; só não recarrega sozinho
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, drag_files, find_duplicates, cancel_duplicates, open_folder, open_file, quit])
+        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, drag_files, find_duplicates, cancel_duplicates, create_examples, open_folder, open_file, quit])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

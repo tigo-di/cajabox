@@ -137,6 +137,13 @@ function renderHeader(shown: number | null) {
     ),
     current.description ? el("p", { class: "desc" }, current.description) : "",
     el("p", { class: "path" }, folderLink(current.path, current.path)),
+    state && current.path.startsWith(`${state.example_dir}/`)
+      ? el(
+          "p",
+          { class: "notice" },
+          "Pasta de exemplo, com arquivos para testar o programa. Quando não precisar mais, apague a pasta e remova-a em “Editar pastas”.",
+        )
+      : "",
   );
 }
 

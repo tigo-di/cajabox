@@ -187,6 +187,15 @@ body {
   margin: 2px 0 0;
 }
 
+#folder-header .notice {
+  margin: 10px 0 0;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 12px;
+}
+
 #folder-header .path {
   margin: 4px 0 0;
 }

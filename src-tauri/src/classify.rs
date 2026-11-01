@@ -77,10 +77,11 @@ impl Classifier {
 
 /// Nome sem extensão. Arquivos como `.bashrc` não têm extensão.
 fn stem(file_name: &str) -> &str {
-    match file_name.rfind('.') {
+    let stem = match file_name.rfind('.') {
         Some(dot) if dot > 0 => &file_name[..dot],
         _ => file_name,
-    }
+    };
+    stem.strip_suffix(".example").unwrap_or(stem) // arquivos de exemplo: nome.example.ext
 }
 
 /// `YYMM` ou `YYMMDD` (com ou sem `v` na frente), ano 20YY, com mês e dia válidos.
@@ -148,6 +149,14 @@ mod tests {
     #[test]
     fn same_synonym_in_two_sections_matches_both() {
         assert_eq!(classifier().classify("email-x.html").terms, vec![vec![0], vec![2]]);
+    }
+
+    #[test]
+    fn example_suffix_before_extension_is_ignored() {
+        let c = classifier();
+        let file = c.classify("news-promo-241129.example.png");
+        assert_eq!(file.terms, vec![vec![0], none()]);
+        assert_eq!(file.date, Some(FileDate { year: 2024, month: 11, day: Some(29) }));
     }
 
     #[test]

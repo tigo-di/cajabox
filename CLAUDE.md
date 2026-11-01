@@ -27,6 +27,7 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 - `config.rs` — localização de manabox.index.md e manabox.paths.md (mover, local padrão)
 - `clipboard.rs` — arquivos na área de transferência do sistema (GTK)
 - `launch.rs` — abrir arquivo/pasta com o programa padrão (GIO, traz a janela para a frente)
+- `examples.rs` — pastas de exemplo (primeira execução e Configurações)
 - `fileops.rs` — renomear e mover arquivos
 - `watch.rs` — observa a pasta aberta e avisa a interface
 - `lib.rs` — comandos Tauri expostos à interface
@@ -49,6 +50,7 @@ O programa gera manabox.index.md e manabox.paths.md (usando os samples como mode
 - `~/.config/manabox/config` guarda a localização atual de manabox.index.md e manabox.paths.md
 - O programa mostra onde eles estão salvos e permite movê-los
 - São editados dentro do programa; o usuário não precisa abrir os arquivos
+- Primeira execução (sem índice nem pastas): cria ~/Documentos/manabox-exemplo/{Prontos,Publicados} com arquivos `.example` e os termos no índice (examples.rs; arquivos em src-tauri/assets/exemplo, gerados por scripts/example-assets.py); "Criar pastas de exemplo" em Configurações faz o mesmo; nunca sobrescreve
 - Editados fora do programa (com ele aberto): recarregados sozinhos; pasta aberta e filtros marcados (pelo nome) mantidos; salvar pelo editor interno depois disso pergunta antes de substituir
 - Blocos `<!-- -->` são comentários e ignorados na leitura
 
@@ -76,6 +78,7 @@ Uma pasta por linha: `nome|descrição|caminho absoluto`
 - Token de 6 dígitos `YYMMDD` ou 4 dígitos `YYMM` (sempre separado por `-`, `_` ou espaço), opcionalmente com `v` na frente (`v241031`, de versão); a lista mostra só a data
 - Ano = 20YY; mês 01–12 e dia 01–31 validados, senão o token não é data
 - Mais de uma data no nome: arquivo considerado sem data
+- `.example` antes da extensão é ignorado (arquivos de exemplo: `nome-241129.example.png`)
 
 # Filtros
 - Termos selecionados na mesma seção: E (arquivo precisa ter todos)

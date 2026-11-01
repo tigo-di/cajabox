@@ -1,0 +1,64 @@
+%PDF-1.4
+%âãÏÓ
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 749 >>
+stream
+BT
+/F1 18 Tf
+56 780 Td
+(Post de lançamento no Instagram \(exemplo\)) Tj
+/F1 11 Tf
+16 TL
+0 -10 Td
+T*
+(O manabox classifica os arquivos pelo nome.) Tj
+T*
+() Tj
+T*
+(O nome é dividido em termos por hífen \(-\), sublinhado \(_\) ou espaço.) Tj
+T*
+(Cada termo é procurado no índice \(Editar índice\): news, insta, promo...) Tj
+T*
+(Sinônimos contam como o termo: newsletter = news, instagram = insta.) Tj
+T*
+() Tj
+T*
+(Datas no nome: AAMMDD \(241129 = 29/11/2024\) ou AAMM \(2412 = dez/2024\),) Tj
+T*
+(com ou sem v na frente \(v250110 = 10/01/2025\).) Tj
+T*
+() Tj
+T*
+(Estes são arquivos de exemplo \(.example antes da extensão\).) Tj
+T*
+(Quando não precisar mais, apague a pasta manabox-exemplo e) Tj
+T*
+(remova as pastas de exemplo em Editar pastas.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000247 00000 n 
+0000001047 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1144
+%%EOF
