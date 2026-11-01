@@ -297,7 +297,16 @@ async function pasteInto() {
 }
 
 /** Atalhos da listagem; ignorados com diálogo aberto ou foco em campo de texto. */
+function quit() {
+  invoke("quit");
+}
+
 function onKeyDown(event: KeyboardEvent) {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "q") {
+    event.preventDefault();
+    quit(); // vale também com diálogo aberto ou campo em foco
+    return;
+  }
   const target = event.target as HTMLElement;
   if (!current || document.querySelector("dialog[open]") || target.closest("input, select, textarea")) return;
   const ctrl = event.ctrlKey || event.metaKey;
@@ -437,6 +446,7 @@ async function init() {
   $("#open-settings").addEventListener("click", () => {
     if (state) openSettings(state, applyState);
   });
+  $("#quit").addEventListener("click", quit);
   $("#clear-filters").addEventListener("click", () => {
     filters = emptyFilters();
     update();

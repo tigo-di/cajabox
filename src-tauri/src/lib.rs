@@ -117,6 +117,12 @@ fn watch_folder(path: String, app: AppHandle, watcher: tauri::State<'_, watch::F
     })
 }
 
+/// Encerra o programa.
+#[tauri::command]
+fn quit(app: AppHandle) {
+    app.exit(0);
+}
+
 /// Arquivos classificados de uma pasta.
 #[tauri::command]
 fn list_folder(path: String) -> Result<Vec<FileEntry>, String> {
@@ -133,7 +139,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(watch::FolderWatcher::default())
-        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, watch_folder])
+        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, watch_folder, quit])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
