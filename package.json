@@ -1,7 +1,7 @@
 {
   "name": "manabox",
   "private": true,
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Gerenciamento de conteúdo",
   "author": "Tiago Dias <tiago@webdeleve.net>",
   "license": "GPL-3.0-or-later",
