@@ -24,6 +24,8 @@ export interface State {
   folders: Folder[];
   /** Versão (hash do conteúdo) de cada arquivo lido; o editor a devolve ao salvar. */
   versions: { index: string; paths: string };
+  /** Pasta das pastas de exemplo. */
+  example_dir: string;
 }
 
 export interface FileDate {

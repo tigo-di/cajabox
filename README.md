@@ -13,6 +13,8 @@ Para atualizar, gere e instale de novo. Para remover: `scripts/install.sh --unin
 
 O AppImage roda em Ubuntu 22.04 ou mais novo e precisa do pacote `libfuse2`.
 
+Na primeira execução, o programa cria pastas de exemplo em `~/Documentos/manabox-exemplo` para mostrar como funciona (arquivos com `.example` no nome). Quando não precisar mais, apague a pasta e remova as pastas de exemplo em "Editar pastas". Para recriá-las: Configurações → "Criar pastas de exemplo".
+
 ## Desenvolvimento
 
 - `pnpm tauri dev` — roda o app

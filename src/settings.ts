@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { ask, open } from "@tauri-apps/plugin-dialog";
+import { ask, message, open } from "@tauri-apps/plugin-dialog";
 
 import { button, el } from "./dom";
 import type { State } from "./types";
@@ -64,6 +64,21 @@ export function openSettings(state: State, onMoved: (state: State) => void) {
     }
   }
 
+  async function createExamples() {
+    error.textContent = "";
+    try {
+      const next = await invoke<State>("create_examples");
+      render(next);
+      onMoved(next);
+      await message(
+        `Pastas de exemplo em ${next.example_dir}, já cadastradas e com os termos no índice. Nada que existia foi alterado.`,
+        { title: "Pastas de exemplo" },
+      );
+    } catch (e) {
+      error.textContent = String(e);
+    }
+  }
+
   render(state);
   const dialog = el(
     "dialog",
@@ -71,6 +86,17 @@ export function openSettings(state: State, onMoved: (state: State) => void) {
     el("h2", {}, "Configurações"),
     el("p", { class: "hint" }, "Arquivos onde o programa guarda o índice e as pastas. Ao mover, o nome é sempre manabox.index.md / manabox.paths.md."),
     rows,
+    el(
+      "div",
+      { class: "settings-file" },
+      el(
+        "div",
+        {},
+        el("div", { class: "settings-label" }, "Exemplo"),
+        el("div", { class: "hint" }, "Duas pastas com arquivos de teste e os termos correspondentes no índice. Não altera o que já existe."),
+      ),
+      el("div", { class: "settings-actions" }, button("Criar pastas de exemplo", createExamples)),
+    ),
     error,
     el("div", { class: "editor-actions" }, button("Fechar", () => dialog.close(), "primary")),
   );
