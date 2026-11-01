@@ -16,6 +16,7 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 - `pnpm tauri dev` — roda o app em modo desenvolvimento
 - `cd src-tauri && cargo test` — testes do núcleo
 - `pnpm build` — checagem de tipos e build do frontend
+- `scripts/build-appimage.sh` — gera o AppImage no Docker (Ubuntu 22.04) em `release/`
 - Node 22.12.0 fixado no projeto via asdf (`.tool-versions`); Vite 8 exige Node ≥ 20.19
 
 ## Código (src-tauri/src)
