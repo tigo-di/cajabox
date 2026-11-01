@@ -245,6 +245,16 @@ body {
   vertical-align: top;
 }
 
+.files th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.files th.sortable:hover,
+.files th.sorted {
+  color: var(--text);
+}
+
 .files th:first-child,
 .files td:first-child {
   padding-left: 24px;

@@ -9,6 +9,7 @@ import { emptyFilters, isEmpty, matches, monthsOf, termKey, yearsOf, type YearFi
 import { openFoldersEditor } from "./folders-editor";
 import { openIndexEditor } from "./index-editor";
 import { openSettings } from "./settings";
+import { readSort, saveSort, sortFiles, toggleSort, type SortKey } from "./sort";
 import type { FileDate, FileEntry, Folder, State } from "./types";
 
 const LAST_FOLDER_KEY = "manabox.lastFolder";
@@ -31,6 +32,8 @@ type ClipboardFiles = { mode: "copy" | "cut"; paths: string[]; skipped: string[]
 const EMPTY_CLIPBOARD: ClipboardFiles = { mode: "copy", paths: [], skipped: [] };
 /** Espelho da área de transferência do sistema (arquivos copiados/recortados no manabox ou num gerenciador). */
 let clipboard = EMPTY_CLIPBOARD;
+
+let sort = readSort();
 
 /** Linha onde o botão do mouse foi pressionado (possível início de arrasto para fora). */
 let pressed: { file: FileEntry; x: number; y: number } | null = null;
@@ -178,8 +181,25 @@ function renderToolbar() {
   }
 }
 
+/** Título de coluna ordenável: clique alterna a ordenação; seta mostra coluna e sentido ativos. */
+function sortHeader(label: string, key: SortKey) {
+  const active = sort.key === key;
+  const arrow = active ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
+  const th = el("th", { class: active ? "sortable sorted" : "sortable", title: "Ordenar" }, label + arrow);
+  if (active) th.setAttribute("aria-sort", sort.dir === "asc" ? "ascending" : "descending");
+  th.addEventListener("click", () => {
+    sort = toggleSort(sort, key);
+    saveSort(sort);
+    renderFiles();
+  });
+  return th;
+}
+
 function renderFiles() {
-  visible = files.filter((f) => matches(f, filters));
+  visible = sortFiles(
+    files.filter((f) => matches(f, filters)),
+    sort,
+  );
   const shown = new Set(visible.map((f) => f.path));
   selected = new Set([...selected].filter((p) => shown.has(p)));
   renderHeader(visible.length);
@@ -207,6 +227,7 @@ function renderFiles() {
     row.classList.toggle("cut", clipboard.mode === "cut" && clipboard.paths.includes(file.path));
     row.addEventListener("click", (event) => clickRow(file, event));
     row.addEventListener("mousedown", (event) => {
+      if (event.shiftKey) event.preventDefault(); // Shift+clique não estende seleção de texto pela página
       if (event.button === 0 && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
         pressed = { file, x: event.clientX, y: event.clientY };
       }
@@ -219,7 +240,7 @@ function renderFiles() {
     el(
       "thead",
       {},
-      el("tr", {}, el("th", {}, "Nome"), el("th", {}, "Subpasta"), el("th", {}, "Termos"), el("th", {}, "Data")),
+      el("tr", {}, sortHeader("Nome", "name"), el("th", {}, "Subpasta"), el("th", {}, "Termos"), sortHeader("Data", "date")),
     ),
     body,
   );
