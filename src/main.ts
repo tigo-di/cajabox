@@ -35,6 +35,27 @@ let clipboard = EMPTY_CLIPBOARD;
 
 let sort = readSort();
 
+const COLLAPSED_KEY = "manabox.collapsed";
+/** Grupos de filtro recolhidos: `date` ou `section:<nome>`; lembrados entre execuções. */
+let collapsed = readCollapsed();
+
+function readCollapsed(): Set<string> {
+  try {
+    const saved = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "[]");
+    return new Set(Array.isArray(saved) ? saved.filter((k) => typeof k === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveCollapsed() {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsed]));
+  } catch {
+    // sem localStorage o app só não lembra as seções recolhidas
+  }
+}
+
 /** Linha onde o botão do mouse foi pressionado (possível início de arrasto para fora). */
 let pressed: { file: FileEntry; x: number; y: number } | null = null;
 /** Arrasto para fora em andamento: soltar na própria janela é ignorado. */
@@ -512,6 +533,24 @@ function normalizeDateFilter() {
   }
 }
 
+/** Grupo de filtros com título que recolhe/mostra o conteúdo; recolhido, mostra `badge` (ex.: termos marcados). */
+function filterGroup(key: string, title: string, badge: string, content: HTMLElement) {
+  const isCollapsed = collapsed.has(key);
+  const toggle = el(
+    "button",
+    { type: "button", class: "group-toggle", "aria-expanded": String(!isCollapsed) },
+    el("span", { class: "group-arrow" }, isCollapsed ? "▸" : "▾"),
+    title,
+    isCollapsed && badge ? el("span", { class: "group-badge" }, ` · ${badge}`) : "",
+  );
+  toggle.addEventListener("click", () => {
+    if (!collapsed.delete(key)) collapsed.add(key);
+    saveCollapsed();
+    renderFilters();
+  });
+  return el("div", { class: "filter-group" }, el("h3", {}, toggle), isCollapsed ? "" : content);
+}
+
 function renderFilters() {
   const panel = $("#filters");
   panel.replaceChildren();
@@ -540,10 +579,10 @@ function renderFilters() {
     update();
   });
   monthSelect.disabled = filters.year === "none";
-  panel.append(el("div", { class: "filter-group" }, el("h3", {}, "Data"), el("div", { class: "date-selects" }, yearSelect, monthSelect)));
+  const dateActive = filters.year !== null || filters.month !== null;
+  panel.append(filterGroup("date", "Data", dateActive ? "filtrada" : "", el("div", { class: "date-selects" }, yearSelect, monthSelect)));
 
   sections.forEach((section, s) => {
-    const group = el("div", { class: "filter-group" }, el("h3", {}, section.name));
     const chips = el("div", { class: "filter-chips" });
     section.terms.forEach((term, t) => {
       const key = termKey(s, t);
@@ -561,8 +600,8 @@ function renderFilters() {
       });
       chips.append(chip);
     });
-    group.append(chips);
-    panel.append(group);
+    const marked = section.terms.filter((_, t) => filters.terms.has(termKey(s, t))).length;
+    panel.append(filterGroup(`section:${section.name}`, section.name, marked ? String(marked) : "", chips));
   });
 }
 
