@@ -31,7 +31,7 @@ pub struct Index {
 
 /// Divide um texto em tokens minúsculos separados por `-` ou espaço.
 pub fn tokenize(text: &str) -> Vec<String> {
-    text.split(|c: char| c == '-' || c.is_whitespace())
+    text.split(|c: char| c == '-' || c == '_' || c.is_whitespace())
         .filter(|t| !t.is_empty())
         .map(|t| t.to_lowercase())
         .collect()
@@ -196,8 +196,9 @@ mod tests {
     }
 
     #[test]
-    fn tokenize_splits_on_dash_and_space_lowercased() {
+    fn tokenize_splits_on_dash_underscore_and_space_lowercased() {
         assert_eq!(tokenize(" Mala-Direta  news\tX "), ["mala", "direta", "news", "x"]);
+        assert_eq!(tokenize("mala_direta__News-x y"), ["mala", "direta", "news", "x", "y"]);
     }
 
     #[test]

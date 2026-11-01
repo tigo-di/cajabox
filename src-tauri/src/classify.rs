@@ -160,12 +160,21 @@ mod tests {
         assert_eq!(c.classify("news-241031.mp4").date, Some(FileDate { year: 2024, month: 10, day: Some(31) }));
         assert_eq!(c.classify("2410 news.mp4").date, Some(FileDate { year: 2024, month: 10, day: None }));
         assert_eq!(c.classify("news-240229.mp4").date.map(|d| d.day), Some(Some(29)));
+        assert_eq!(c.classify("news_241031.mp4").date, Some(FileDate { year: 2024, month: 10, day: Some(31) }));
+    }
+
+    #[test]
+    fn underscore_separates_terms() {
+        let c = classifier();
+        assert_eq!(c.classify("Newsletter_Promo.mp4").terms, vec![vec![0], none()]);
+        assert_eq!(c.classify("mala_direta_promo.pdf").terms, vec![vec![0], none()]);
+        assert_eq!(c.classify("news-promo_insta 2410.png").terms, vec![vec![0, 1], none()]);
     }
 
     #[test]
     fn rejects_invalid_or_embedded_dates() {
         let c = classifier();
-        for name in ["news-241301.mp4", "news-230229.mp4", "news-241032.mp4", "news_241031.mp4", "news-24103.mp4", "1080.mp4"] {
+        for name in ["news-241301.mp4", "news-230229.mp4", "news-241032.mp4", "news.241031.mp4", "news-24103.mp4", "1080.mp4"] {
             assert_eq!(c.classify(name).date, None, "{name}");
         }
     }
