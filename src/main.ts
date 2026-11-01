@@ -1,9 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { ask, message, open } from "@tauri-apps/plugin-dialog";
 
 import { openAbout } from "./about";
-import { $, button, el, promptText } from "./dom";
+import { $, button, choose, el, promptText } from "./dom";
 import { emptyFilters, isEmpty, matches, monthsOf, termKey, yearsOf, type YearFilter } from "./filter";
 import { openFoldersEditor } from "./folders-editor";
 import { openIndexEditor } from "./index-editor";
@@ -300,18 +301,16 @@ async function trashSelected() {
   await reload();
 }
 
-/** Copia ou move os arquivos do clipboard para `dest`; em conflito pergunta por arquivo se substitui.
- * Recorte é colado uma vez só; cópia pode ser colada de novo. */
-async function paste(dest: string) {
-  await refreshClipboard();
-  if (clipboard.skipped.length) {
-    await message(`Só arquivos podem ser colados. Ignorados:\n${clipboard.skipped.join("\n")}`, { title: "Colar", kind: "warning" });
-  }
-  if (clipboard.paths.length === 0) return;
-  const command = clipboard.mode === "copy" ? "copy_file" : "move_file";
+async function warnSkipped(skipped: string[]) {
+  if (skipped.length) await message(`Só arquivos podem ser colados. Ignorados:\n${skipped.join("\n")}`, { title: "Colar", kind: "warning" });
+}
+
+/** Copia ou move `paths` para `dest`; em conflito pergunta por arquivo se substitui. */
+async function transfer(paths: string[], mode: "copy" | "cut", dest: string) {
+  const command = mode === "copy" ? "copy_file" : "move_file";
   const errors: string[] = [];
   const pasted: string[] = [];
-  for (const path of clipboard.paths) {
+  for (const path of paths) {
     try {
       let result = await invoke<FileResult>(command, { path, destDir: dest, overwrite: false });
       if (result.status === "exists") {
@@ -324,10 +323,37 @@ async function paste(dest: string) {
       errors.push(String(error));
     }
   }
-  if (clipboard.mode === "cut") await setClipboard([], "copy"); // recorte colado sai da área de transferência
   selected = new Set(pasted);
   if (errors.length) await message(errors.join("\n"), { title: "Colar", kind: "error" });
   await reload();
+}
+
+/** Cola a área de transferência em `dest`. Recorte é colado uma vez só; cópia pode ser colada de novo. */
+async function paste(dest: string) {
+  await refreshClipboard();
+  await warnSkipped(clipboard.skipped);
+  if (clipboard.paths.length === 0) return;
+  const { paths, mode } = clipboard;
+  if (mode === "cut") await setClipboard([], "copy"); // recorte colado sai da área de transferência
+  await transfer(paths, mode, dest);
+}
+
+/** Itens soltos na janela (arrastados de um gerenciador de arquivos): copiar ou mover para a pasta aberta. */
+async function dropFiles(dropped: string[]) {
+  const folder = current;
+  if (!folder || dropped.length === 0 || document.querySelector("dialog[open]")) return;
+  const { paths, skipped } = await invoke<{ paths: string[]; skipped: string[] }>("split_files", { paths: dropped });
+  await warnSkipped(skipped);
+  if (paths.length === 0) return;
+  const what = paths.length === 1 ? `“${paths[0].slice(paths[0].lastIndexOf("/") + 1)}”` : `${paths.length} arquivos`;
+  const choice = await choose("Soltar arquivos", `${what} em ${folder.name}`, ["Copiar aqui", "Mover aqui"]);
+  if (choice) await transfer(paths, choice === "Copiar aqui" ? "copy" : "cut", folder.path);
+}
+
+function setDropHighlight(on: boolean) {
+  const content = $("#content");
+  content.classList.toggle("drop-target", on && !!current && !content.querySelector(".message.error"));
+  if (current) content.dataset.drop = `Soltar em ${current.name}`;
 }
 
 async function pasteInto() {
@@ -494,6 +520,11 @@ async function init() {
   });
   document.addEventListener("keydown", onKeyDown);
   window.addEventListener("focus", refreshClipboard); // o usuário pode ter copiado no gerenciador de arquivos
+  await getCurrentWebview().onDragDropEvent((event) => {
+    const { type } = event.payload;
+    setDropHighlight(type === "enter" || type === "over");
+    if (type === "drop") dropFiles(event.payload.paths);
+  });
   await listen<string>("folder-changed", (event) => {
     if (event.payload === current?.path) reload();
   });

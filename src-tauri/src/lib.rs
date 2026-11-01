@@ -134,12 +134,32 @@ fn watch_folder(path: String, app: AppHandle, watcher: tauri::State<'_, watch::F
 }
 
 #[derive(Serialize)]
-struct ClipboardFiles {
-    mode: clipboard::Mode,
+struct FileList {
     /// Arquivos existentes.
     paths: Vec<String>,
     /// Pastas e caminhos inexistentes (o manabox opera só arquivos).
     skipped: Vec<String>,
+}
+
+impl FileList {
+    fn new(paths: impl IntoIterator<Item = std::path::PathBuf>) -> Self {
+        let (files, skipped): (Vec<_>, Vec<_>) = paths.into_iter().partition(|p| p.is_file());
+        let text = |paths: Vec<std::path::PathBuf>| paths.iter().map(|p| p.display().to_string()).collect();
+        FileList { paths: text(files), skipped: text(skipped) }
+    }
+}
+
+/// Separa arquivos de pastas e caminhos inexistentes (ex.: itens soltos na janela).
+#[tauri::command]
+fn split_files(paths: Vec<String>) -> FileList {
+    FileList::new(paths.into_iter().map(Into::into))
+}
+
+#[derive(Serialize)]
+struct ClipboardFiles {
+    mode: clipboard::Mode,
+    #[serde(flatten)]
+    files: FileList,
 }
 
 /// Coloca arquivos na área de transferência do sistema (copiar ou recortar).
@@ -153,9 +173,7 @@ fn clipboard_set(paths: Vec<String>, mode: clipboard::Mode) -> Result<(), String
 #[tauri::command]
 fn clipboard_get() -> Option<ClipboardFiles> {
     let contents = clipboard::system::get()?;
-    let (files, skipped): (Vec<_>, Vec<_>) = contents.paths.into_iter().partition(|p| p.is_file());
-    let text = |paths: Vec<std::path::PathBuf>| paths.iter().map(|p| p.display().to_string()).collect();
-    Some(ClipboardFiles { mode: contents.mode, paths: text(files), skipped: text(skipped) })
+    Some(ClipboardFiles { mode: contents.mode, files: FileList::new(contents.paths) })
 }
 
 /// Esvazia a área de transferência do sistema.
@@ -186,7 +204,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(watch::FolderWatcher::default())
-        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, quit])
+        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, quit])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
