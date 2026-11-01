@@ -641,6 +641,44 @@ async function selectFolder(folder: Folder) {
 }
 
 /** Aplica um estado novo mantendo a pasta atual (pelo nome) quando ela ainda existe. */
+/** Configuração alterada fora do programa: recarrega mantendo a pasta aberta, a seleção e os
+ * filtros marcados (pelo nome da seção e do termo; termos que sumiram são desmarcados). */
+async function reloadState() {
+  let next: State;
+  try {
+    next = await invoke<State>("load_state");
+  } catch (error) {
+    console.error(error);
+    return;
+  }
+  const sections = state?.index.sections ?? [];
+  const marked = new Set(
+    [...filters.terms].map((key) => {
+      const [s, t] = key.split(":").map(Number);
+      return `${sections[s]?.name}\u0000${sections[s]?.terms[t]?.name}`;
+    }),
+  );
+  filters.terms = new Set();
+  next.index.sections.forEach((section, s) =>
+    section.terms.forEach((term, t) => {
+      if (marked.has(`${section.name}\u0000${term.name}`)) filters.terms.add(termKey(s, t));
+    }),
+  );
+  const open = current;
+  const same = open && next.folders.find((f) => f.name === open.name && f.path === open.path);
+  state = next;
+  if (same) {
+    current = same; // descrição pode ter mudado
+    renderFolders();
+    await reload();
+    return;
+  }
+  if (open && !next.folders.some((f) => f.name === open.name)) {
+    await message(`A pasta “${open.name}” não está mais na configuração.`, { title: "Configuração alterada", kind: "warning" });
+  }
+  applyState(next);
+}
+
 function applyState(next: State) {
   state = next;
   const name = current?.name ?? readLastFolder();
@@ -659,9 +697,9 @@ function applyState(next: State) {
 }
 
 async function init() {
-  $("#edit-folders").addEventListener("click", () => openFoldersEditor(state?.folders ?? [], applyState));
+  $("#edit-folders").addEventListener("click", () => openFoldersEditor(state?.folders ?? [], state?.versions.paths ?? "", applyState));
   $("#edit-index").addEventListener("click", () =>
-    openIndexEditor(state?.index.sections ?? [], (next) => {
+    openIndexEditor(state?.index.sections ?? [], state?.versions.index ?? "", (next) => {
       filters.terms.clear(); // posições dos termos podem ter mudado
       applyState(next);
     }),
@@ -702,6 +740,7 @@ async function init() {
   document.addEventListener("mousemove", onMouseMove);
   document.addEventListener("mouseup", () => (pressed = null));
   await listen("drag-out-ended", () => (draggingOut = false));
+  await listen("config-changed", reloadState);
   await listen<string>("folder-changed", (event) => {
     if (event.payload === current?.path) reload();
   });

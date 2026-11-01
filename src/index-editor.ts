@@ -1,11 +1,11 @@
-import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 
 import { button, el } from "./dom";
+import { NOT_SAVED, saveConfig } from "./save-config";
 import type { Section, State, Term } from "./types";
 
 /** Abre o editor do índice (manabox.index.md); `onSaved` recebe o estado já gravado. */
-export function openIndexEditor(sections: Section[], onSaved: (state: State) => void) {
+export function openIndexEditor(sections: Section[], version: string, onSaved: (state: State) => void) {
   const list = el("div", { class: "index-sections" });
   const error = el("p", { class: "editor-error" });
 
@@ -66,7 +66,11 @@ export function openIndexEditor(sections: Section[], onSaved: (state: State) => 
   async function save() {
     error.textContent = "";
     try {
-      const state = await invoke<State>("save_index", { index: { sections: collect() } });
+      const state = await saveConfig("save_index", { index: { sections: collect() } }, version);
+      if (!state) {
+        error.textContent = NOT_SAVED;
+        return;
+      }
       dialog.close();
       onSaved(state);
     } catch (e) {

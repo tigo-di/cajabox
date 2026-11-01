@@ -22,6 +22,8 @@ export interface State {
   default_dir: string;
   index: { sections: Section[] };
   folders: Folder[];
+  /** Versão (hash do conteúdo) de cada arquivo lido; o editor a devolve ao salvar. */
+  versions: { index: string; paths: string };
 }
 
 export interface FileDate {
