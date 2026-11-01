@@ -8,7 +8,7 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 - Sistema operacional: Ubuntu; distribuído como AppImage
 - Ícone: `python3 scripts/icon.py` (baú em pixel art; ver instruções no script)
 - Versão: `package.json` (lida pelo tauri.conf.json); `src-tauri/Cargo.toml` acompanha
-- Licença: GPL-3.0-or-later (LICENSE); autor Tiago Dias <tiago@webdeleve.net>
+- Licença: GPL-3.0-or-later (LICENSE); autor Tiago Dias <tigo@webdeleve.net>
 - Desenvolvimento no host (Rust + libs do Tauri instalados localmente)
 - Build do AppImage dentro de container Docker com Ubuntu 22.04 (glibc antiga = AppImage compatível com mais sistemas)
 
@@ -71,7 +71,7 @@ Uma pasta por linha: `nome|descrição|caminho absoluto`
 - Um arquivo pode ter vários termos da mesma seção
 
 ## Datas
-- Token de 6 dígitos `YYMMDD` ou 4 dígitos `YYMM` (sempre separado por `-`, `_` ou espaço)
+- Token de 6 dígitos `YYMMDD` ou 4 dígitos `YYMM` (sempre separado por `-`, `_` ou espaço), opcionalmente com `v` na frente (`v241031`, de versão); a lista mostra só a data
 - Ano = 20YY; mês 01–12 e dia 01–31 validados, senão o token não é data
 - Mais de uma data no nome: arquivo considerado sem data
 

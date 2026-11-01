@@ -83,8 +83,9 @@ fn stem(file_name: &str) -> &str {
     }
 }
 
-/// `YYMM` ou `YYMMDD`, ano 20YY, com mês e dia válidos.
+/// `YYMM` ou `YYMMDD` (com ou sem `v` na frente), ano 20YY, com mês e dia válidos.
 fn parse_date(token: &str) -> Option<FileDate> {
+    let token = token.strip_prefix('v').unwrap_or(token); // `v241031`: v de versão
     if !matches!(token.len(), 4 | 6) || !token.bytes().all(|b| b.is_ascii_digit()) {
         return None;
     }
@@ -177,6 +178,17 @@ mod tests {
         for name in ["news-241301.mp4", "news-230229.mp4", "news-241032.mp4", "news.241031.mp4", "news-24103.mp4", "1080.mp4"] {
             assert_eq!(c.classify(name).date, None, "{name}");
         }
+    }
+
+    #[test]
+    fn version_prefix_v_is_accepted() {
+        let c = classifier();
+        assert_eq!(c.classify("news-v241031.mp4").date, Some(FileDate { year: 2024, month: 10, day: Some(31) }));
+        assert_eq!(c.classify("news V2410.mp4").date, Some(FileDate { year: 2024, month: 10, day: None }));
+        for name in ["news-v24103.mp4", "news-v.mp4", "news-vv241031.mp4", "news-v241301.mp4"] {
+            assert_eq!(c.classify(name).date, None, "{name}");
+        }
+        assert_eq!(c.classify("news-241031-v241101.mp4").date, None, "duas datas");
     }
 
     #[test]

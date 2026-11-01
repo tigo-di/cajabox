@@ -2,7 +2,7 @@
 name = "manabox"
 version = "0.7.0"
 description = "Gerenciamento de conteúdo"
-authors = ["Tiago Dias <tiago@webdeleve.net>"]
+authors = ["Tiago Dias <tigo@webdeleve.net>"]
 license = "GPL-3.0-or-later"
 edition = "2024"
 

@@ -23,10 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 
-# Tasks e steps locais (só off/historico/ é versionado)
-off/tasks/
-off/steps/
-off/concluidos/
+# Tasks, steps e histórico: locais (skill de tasks)
+off/
 
 # AppImage gerado por scripts/build-appimage.sh
 release/
