@@ -32,6 +32,11 @@ const EMPTY_CLIPBOARD: ClipboardFiles = { mode: "copy", paths: [], skipped: [] }
 /** Espelho da área de transferência do sistema (arquivos copiados/recortados no manabox ou num gerenciador). */
 let clipboard = EMPTY_CLIPBOARD;
 
+/** Linha onde o botão do mouse foi pressionado (possível início de arrasto para fora). */
+let pressed: { file: FileEntry; x: number; y: number } | null = null;
+/** Arrasto para fora em andamento: soltar na própria janela é ignorado. */
+let draggingOut = false;
+
 type FileResult = { status: "done" | "exists"; path: string };
 
 function formatDate(date: FileDate): string {
@@ -201,6 +206,11 @@ function renderFiles() {
     row.classList.toggle("selected", selected.has(file.path));
     row.classList.toggle("cut", clipboard.mode === "cut" && clipboard.paths.includes(file.path));
     row.addEventListener("click", (event) => clickRow(file, event));
+    row.addEventListener("mousedown", (event) => {
+      if (event.button === 0 && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
+        pressed = { file, x: event.clientX, y: event.clientY };
+      }
+    });
     body.append(row);
   }
   const table = el(
@@ -348,6 +358,34 @@ async function dropFiles(dropped: string[]) {
   const what = paths.length === 1 ? `“${paths[0].slice(paths[0].lastIndexOf("/") + 1)}”` : `${paths.length} arquivos`;
   const choice = await choose("Soltar arquivos", `${what} em ${folder.name}`, ["Copiar aqui", "Mover aqui"]);
   if (choice) await transfer(paths, choice === "Copiar aqui" ? "copy" : "cut", folder.path);
+}
+
+/** Arrasta a seleção (ou só a linha, se não estiver selecionada) para outro programa. */
+async function dragOut(file: FileEntry) {
+  if (!selected.has(file.path)) {
+    selected = new Set([file.path]);
+    anchor = file.path;
+    renderFiles();
+  }
+  const paths = visible.filter((f) => selected.has(f.path)).map((f) => f.path);
+  draggingOut = true;
+  try {
+    await invoke("drag_files", { paths });
+  } catch (error) {
+    draggingOut = false;
+    console.error(error);
+  }
+}
+
+function onMouseMove(event: MouseEvent) {
+  if (!pressed) return;
+  if (!(event.buttons & 1)) {
+    pressed = null;
+  } else if (Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > 6) {
+    const { file } = pressed;
+    pressed = null;
+    dragOut(file);
+  }
 }
 
 function setDropHighlight(on: boolean) {
@@ -522,9 +560,13 @@ async function init() {
   window.addEventListener("focus", refreshClipboard); // o usuário pode ter copiado no gerenciador de arquivos
   await getCurrentWebview().onDragDropEvent((event) => {
     const { type } = event.payload;
+    if (draggingOut) return setDropHighlight(false); // arrasto saindo do próprio manabox
     setDropHighlight(type === "enter" || type === "over");
     if (type === "drop") dropFiles(event.payload.paths);
   });
+  document.addEventListener("mousemove", onMouseMove);
+  document.addEventListener("mouseup", () => (pressed = null));
+  await listen("drag-out-ended", () => (draggingOut = false));
   await listen<string>("folder-changed", (event) => {
     if (event.payload === current?.path) reload();
   });

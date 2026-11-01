@@ -1,6 +1,8 @@
 mod classify;
 mod clipboard;
 mod config;
+#[cfg(target_os = "linux")]
+mod dragout;
 mod fileops;
 mod index;
 mod markdown;
@@ -182,6 +184,18 @@ fn clipboard_clear() {
     clipboard::system::clear();
 }
 
+/// Inicia o arrasto de arquivos para outro programa; emite `drag-out-ended` ao terminar.
+/// Síncrono de propósito: roda na thread principal, exigida pelo GTK.
+#[cfg(target_os = "linux")]
+#[tauri::command]
+fn drag_files(paths: Vec<String>, window: tauri::WebviewWindow, app: AppHandle) -> Result<(), String> {
+    let gtk_window = window.gtk_window().map_err(|e| e.to_string())?;
+    let paths: Vec<std::path::PathBuf> = paths.into_iter().map(Into::into).collect();
+    dragout::start(&gtk_window, &paths, move || {
+        let _ = app.emit("drag-out-ended", ());
+    })
+}
+
 /// Encerra o programa.
 #[tauri::command]
 fn quit(app: AppHandle) {
@@ -204,7 +218,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(watch::FolderWatcher::default())
-        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, quit])
+        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, drag_files, quit])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
