@@ -64,14 +64,14 @@ Uma pasta por linha: `nome|descrição|caminho absoluto`
 
 # Classificação
 ## Termos
-- Nome do arquivo (sem extensão) é dividido em tokens por `-` ou espaço
+- Nome do arquivo (sem extensão) é dividido em tokens por `-`, `_` ou espaço
 - Comparação case insensitive
 - Um termo casa somente com tokens inteiros (`news` ≠ `newsletter`)
 - Termos compostos (`mala-direta`) casam com a sequência de tokens; o termo mais longo tem preferência: tokens consumidos por `mala-direta` não casam com `mala` ou `direta`
 - Um arquivo pode ter vários termos da mesma seção
 
 ## Datas
-- Token de 6 dígitos `YYMMDD` ou 4 dígitos `YYMM` (sempre separado por `-` ou espaço)
+- Token de 6 dígitos `YYMMDD` ou 4 dígitos `YYMM` (sempre separado por `-`, `_` ou espaço)
 - Ano = 20YY; mês 01–12 e dia 01–31 validados, senão o token não é data
 - Mais de uma data no nome: arquivo considerado sem data
 
