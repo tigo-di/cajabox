@@ -26,6 +26,7 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 - `scan.rs` — listagem recursiva de uma pasta
 - `config.rs` — localização de manabox.index.md e manabox.paths.md (mover, local padrão)
 - `clipboard.rs` — arquivos na área de transferência do sistema (GTK)
+- `launch.rs` — abrir arquivo/pasta com o programa padrão (GIO, traz a janela para a frente)
 - `fileops.rs` — renomear e mover arquivos
 - `watch.rs` — observa a pasta aberta e avisa a interface
 - `lib.rs` — comandos Tauri expostos à interface
@@ -86,6 +87,7 @@ Uma pasta por linha: `nome|descrição|caminho absoluto`
 - Data: a data do nome; começa pelos mais recentes; sem data sempre no fim; empate pelo nome
 
 # Operações com arquivos
+- Abrir arquivo com o programa padrão: duplo clique na linha ou Enter (selecionados)
 - Copiar, recortar, colar, excluir, renomear arquivos das pastas listadas
 - Cópia pode ser colada várias vezes; recorte, uma vez
 - Copiar/recortar/colar usam a área de transferência do sistema (troca com qualquer gerenciador de arquivos): `x-special/gnome-copied-files` (Nautilus, Nemo, Caja, Thunar), `text/uri-list` + `application/x-kde-cutselection` (Dolphin) e texto com os caminhos; pastas são ignoradas com aviso

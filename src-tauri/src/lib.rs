@@ -5,6 +5,7 @@ mod config;
 mod dragout;
 mod fileops;
 mod index;
+mod launch;
 mod markdown;
 mod paths;
 mod scan;
@@ -16,7 +17,6 @@ use std::path::Path;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
-use tauri_plugin_opener::OpenerExt;
 
 use classify::Classifier;
 use config::Config;
@@ -198,15 +198,22 @@ fn drag_files(paths: Vec<String>, window: tauri::WebviewWindow, app: AppHandle) 
 }
 
 /// Abre uma pasta no gerenciador de arquivos padrão. Feito no Rust para a interface não
-/// precisar de permissão do plugin opener para abrir caminhos quaisquer.
+/// precisar de permissão para abrir caminhos quaisquer. Síncrono: GTK na thread principal.
 #[tauri::command]
-fn open_folder(path: String, app: AppHandle) -> Result<(), String> {
+fn open_folder(path: String) -> Result<(), String> {
     if !Path::new(&path).is_dir() {
         return Err(format!("Não foi possível encontrar o caminho: {path}"));
     }
-    app.opener()
-        .open_path(&path, None::<&str>)
-        .map_err(|e| format!("Não foi possível abrir {path}: {e}"))
+    launch::open(Path::new(&path)).map_err(|e| format!("Não foi possível abrir {path}: {e}"))
+}
+
+/// Abre um arquivo com o programa padrão do sistema (mesmo motivo de `open_folder`).
+#[tauri::command]
+fn open_file(path: String) -> Result<(), String> {
+    if !Path::new(&path).is_file() {
+        return Err(format!("Arquivo não encontrado: {path}"));
+    }
+    launch::open(Path::new(&path)).map_err(|e| format!("Não foi possível abrir {path}: {e}"))
 }
 
 /// Encerra o programa.
@@ -231,7 +238,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(watch::FolderWatcher::default())
-        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, drag_files, open_folder, quit])
+        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, drag_files, open_folder, open_file, quit])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

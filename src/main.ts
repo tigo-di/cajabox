@@ -240,6 +240,7 @@ function renderFiles() {
     row.classList.toggle("selected", selected.has(file.path));
     row.classList.toggle("cut", clipboard.mode === "cut" && clipboard.paths.includes(file.path));
     row.addEventListener("click", (event) => clickRow(file, event));
+    row.addEventListener("dblclick", () => openFiles([file.path]));
     row.addEventListener("mousedown", (event) => {
       if (event.shiftKey) event.preventDefault(); // Shift+clique não estende seleção de texto pela página
       if (event.button === 0 && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
@@ -280,6 +281,19 @@ async function reload() {
     $("#toolbar").replaceChildren();
     renderMessage(String(error), "error");
   }
+}
+
+/** Abre arquivos com o programa padrão do sistema; erros juntos num só aviso. */
+async function openFiles(paths: string[]) {
+  const errors: string[] = [];
+  for (const path of paths) {
+    try {
+      await invoke("open_file", { path });
+    } catch (error) {
+      errors.push(String(error));
+    }
+  }
+  if (errors.length) await message(errors.join("\n"), { title: "Abrir", kind: "error" });
 }
 
 async function renameSelected() {
@@ -457,6 +471,7 @@ function onKeyDown(event: KeyboardEvent) {
   const ctrl = event.ctrlKey || event.metaKey;
   const key = event.key.toLowerCase();
   if (event.key === "F2") renameSelected();
+  else if (event.key === "Enter" && selected.size && !target.closest("button")) openFiles(visible.filter((f) => selected.has(f.path)).map((f) => f.path));
   else if (event.key === "Delete") trashSelected();
   else if (ctrl && key === "c") toClipboard("copy");
   else if (ctrl && key === "x") toClipboard("cut");
