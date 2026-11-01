@@ -37,6 +37,8 @@ export interface FileEntry {
   /** Relativo à pasta listada, incluindo o nome. */
   relative_path: string;
   path: string;
+  /** Tamanho em bytes. */
+  size: number;
   /** Uma lista por seção do índice, com as posições dos termos encontrados. */
   terms: number[][];
   date: FileDate | null;
