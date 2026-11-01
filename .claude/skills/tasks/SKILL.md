@@ -5,14 +5,14 @@ description: Gerencia o fluxo de tasks e steps do projeto em off/tasks e off/ste
 
 # Fluxo de tasks e steps
 
-Tudo fica em `off/`. Tasks e steps são ignorados pelo git (locais); só `off/historico/` é versionado.
+Tudo fica em `off/` e é local: a pasta inteira é ignorada pelo git (inclusive o histórico).
 
 ```
 off/tasks/AAMMDD-nome-curto.md            task em andamento
 off/steps/AAMMDD-nome-curto/NN-nome.md    steps da task (NN = 01, 02, ...)
 off/concluidos/tasks/                     tasks concluídas
 off/concluidos/steps/AAMMDD-nome-curto/   steps da task concluída
-off/historico/AAMMDD-tema-curto.md        resumo de um período de trabalho (versionado)
+off/historico/AAMMDD-tema-curto.md        resumo de um período de trabalho
 ```
 
 Nomes de arquivo: minúsculos, sem espaços, sem acentos, palavras separadas por `-`. A pasta de steps tem exatamente o mesmo nome da task (sem `.md`).
@@ -96,7 +96,7 @@ Quando todos os steps estiverem `concluido`:
 2. Mude `status: concluido` na task e acrescente `concluida: AAAA-MM-DD`.
 3. Mova `off/tasks/<task>.md` → `off/concluidos/tasks/` e `off/steps/<task>/` → `off/concluidos/steps/`.
 4. Registre no histórico (seção abaixo).
-5. Faça o commit do histórico e o merge em `main` (seção Git).
+5. Faça o merge em `main` (seção Git).
 
 ## Histórico
 
@@ -128,13 +128,13 @@ tasks: <nome-da-task> (concluída|planejada), ...
 ```
 
 4. Seja factual e conciso: nada de rascunhos, só o que foi decidido ou feito. Não repita detalhes que já estão no código, nos commits ou nos steps; aponte para eles.
-5. `off/historico/` é versionado: o arquivo entra no commit de conclusão da task (ver Git). Não inclua segredos (chaves, senhas, dados pessoais de clientes).
+5. `off/historico/` é local (não vai para o git); mesmo assim, não inclua segredos (chaves, senhas, dados pessoais de clientes).
 
 ## Git
 
 - **Branch por task:** ao gravar os steps, crie a partir de `main` o branch `task/<nome-da-task>` (ex.: `task/261031-fechar-sobre`) e trabalhe nele até concluir a task.
 - **Commit por step:** ao concluir um step (verificação feita e aprovada pelo usuário), faça um commit no branch da task com o código do step. Mensagem: `<Título do step> (step NN)`. Steps e tasks são ignorados pelo git; o commit leva só o código.
-- **Conclusão da task:** depois de gravar o histórico, faça o commit do arquivo de `off/historico/` no branch e o merge em `main` com `--no-ff` (mensagem `Task <nome-da-task>`), mantendo o branch.
+- **Conclusão da task:** depois de gravar o histórico, faça o merge do branch em `main` com `--no-ff` (mensagem `Task <nome-da-task>`), mantendo o branch.
 - **Tag por release:** quando o usuário decidir fechar uma versão, crie em `main` a tag anotada `vX.Y.Z` (semver: X mudança incompatível, Y função nova, Z correção). Sugira a versão; não crie tag sem o OK. Antes da tag, atualize a versão em `package.json` (fonte, lida pelo `tauri.conf.json`) e em `src-tauri/Cargo.toml` (+ `Cargo.lock`) e faça em `main` o commit `Versão X.Y.Z`.
 - Antes de cada commit, confira `git status` para não incluir arquivos indevidos (segredos, builds, arquivos pessoais).
 
