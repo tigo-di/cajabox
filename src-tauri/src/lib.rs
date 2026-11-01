@@ -234,6 +234,7 @@ fn list_folder(path: String) -> Result<Vec<FileEntry>, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    launch::prefer_host_data();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
