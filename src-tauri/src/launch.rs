@@ -47,6 +47,28 @@ fn clean_env(vars: impl Iterator<Item = (OsString, OsString)>, appdir: &Path) ->
     changes
 }
 
+/// No AppImage, ao iniciar: dados do sistema (configurações GSettings, ícones, tipos de arquivo)
+/// passam a ter preferência sobre os empacotados, que ficam de reserva. Sem isso valiam os padrões
+/// do Ubuntu 22.04 do build, sem as personalizações da distribuição (ex.: só o botão fechar na
+/// janela). Chamar no início do programa, antes de criar threads.
+pub fn prefer_host_data() {
+    let Some(appdir) = std::env::var_os("APPDIR") else { return };
+    let dirs = std::env::var_os("XDG_DATA_DIRS").unwrap_or_default();
+    let reordered = host_first(&dirs, Path::new(&appdir));
+    // SAFETY: chamado no início de `run`, com uma só thread.
+    unsafe {
+        std::env::set_var("XDG_DATA_DIRS", reordered);
+        std::env::remove_var("GSETTINGS_SCHEMA_DIR"); // esquemas passam a vir de XDG_DATA_DIRS
+    }
+}
+
+/// Lista de caminhos (`a:b:c`) com os que ficam dentro de `dir` movidos para o fim.
+fn host_first(dirs: &OsStr, dir: &Path) -> OsString {
+    let (inside, outside): (Vec<_>, Vec<_>) =
+        std::env::split_paths(dirs).filter(|d| !d.as_os_str().is_empty()).partition(|d| d.starts_with(dir));
+    std::env::join_paths(outside.into_iter().chain(inside)).unwrap_or_default()
+}
+
 /// Lista de caminhos (`a:b:c`) sem os que ficam dentro de `dir` e sem entradas vazias.
 fn without_dir(dirs: &OsStr, dir: &Path) -> OsString {
     let kept = std::env::split_paths(dirs).filter(|d| !d.as_os_str().is_empty() && !d.starts_with(dir));
@@ -59,6 +81,15 @@ mod tests {
 
     fn env(pairs: &[(&str, &str)]) -> Vec<(OsString, OsString)> {
         pairs.iter().map(|(k, v)| (k.into(), v.into())).collect()
+    }
+
+    #[test]
+    fn host_data_dirs_come_first() {
+        let dirs = OsStr::new("/tmp/.mount_manaXYZ/usr/share/:/tmp/.mount_manaXYZ/usr/share:/usr/local/share/:/usr/share/:");
+        assert_eq!(
+            host_first(dirs, Path::new("/tmp/.mount_manaXYZ")),
+            "/usr/local/share/:/usr/share/:/tmp/.mount_manaXYZ/usr/share/:/tmp/.mount_manaXYZ/usr/share"
+        );
     }
 
     #[test]
