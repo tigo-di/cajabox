@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 
+import { t } from "./i18n";
 import type { State } from "./types";
 
 type SaveResult = { status: "saved"; state: State } | { status: "changed" };
@@ -11,8 +12,8 @@ export async function saveConfig(command: string, args: Record<string, unknown>,
   let result = await invoke<SaveResult>(command, { ...args, expected: version, overwrite: false });
   if (result.status === "changed") {
     const replace = await ask(
-      "O arquivo foi alterado fora do manabox depois que este editor foi aberto.\nSubstituir pelo conteúdo do editor?",
-      { title: "Arquivo alterado", kind: "warning" },
+      t("save.changed"),
+      { title: t("save.changedTitle"), kind: "warning" },
     );
     if (!replace) return null;
     result = await invoke<SaveResult>(command, { ...args, expected: version, overwrite: true });
@@ -20,4 +21,4 @@ export async function saveConfig(command: string, args: Record<string, unknown>,
   return result.status === "saved" ? result.state : null;
 }
 
-export const NOT_SAVED = "Não salvo. Feche o editor e abra de novo para ver a versão atual do arquivo.";
+export const notSaved = () => t("save.notSaved");

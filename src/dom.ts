@@ -1,3 +1,5 @@
+import { t, type Lang } from "./i18n";
+
 export const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 
 /** Cria um elemento; textos sempre via textContent (nomes de arquivo não viram HTML). */
@@ -21,7 +23,7 @@ export function promptText(title: string, value: string, selectUntil = value.len
     let result: string | null = null;
     form.append(
       input,
-      el("div", { class: "editor-actions" }, button("Cancelar", () => dialog.close()), el("button", { type: "submit", class: "primary" }, "OK")),
+      el("div", { class: "editor-actions" }, button(t("common.cancel"), () => dialog.close()), el("button", { type: "submit", class: "primary" }, t("common.ok"))),
     );
     form.addEventListener("submit", () => {
       result = input.value;
@@ -47,7 +49,7 @@ export function choose(title: string, text: string, options: string[]): Promise<
       dialog.close();
     };
     const buttons = options.map((label, i) => button(label, pick(label), i === 0 ? "primary" : ""));
-    dialog.append(el("div", { class: "editor-actions" }, button("Cancelar", () => dialog.close()), ...buttons));
+    dialog.append(el("div", { class: "editor-actions" }, button(t("common.cancel"), () => dialog.close()), ...buttons));
     dialog.addEventListener("close", () => {
       dialog.remove();
       resolve(result);
@@ -62,4 +64,28 @@ export function button(label: string, onClick: () => void, className = ""): HTML
   const node = el("button", { type: "button", class: className }, label);
   node.addEventListener("click", onClick);
   return node;
+}
+
+/** Primeira execução: escolha do idioma (bilíngue), com `initial` pré-selecionado. */
+export function chooseLanguage(initial: Lang): Promise<Lang> {
+  return new Promise((resolve) => {
+    let chosen = initial;
+    const dialog = el("dialog", { class: "editor prompt language" }, el("h2", {}, "Idioma / Language"));
+    const option = (value: Lang, label: string) => {
+      const node = button(label, () => {
+        chosen = value;
+        dialog.close();
+      }, value === initial ? "primary" : "");
+      return node;
+    };
+    const buttons = [option("pt", "Português"), option("en", "English")];
+    dialog.append(el("div", { class: "editor-actions" }, ...buttons));
+    dialog.addEventListener("close", () => {
+      dialog.remove();
+      resolve(chosen); // Esc = idioma pré-selecionado
+    });
+    document.body.append(dialog);
+    dialog.showModal();
+    buttons[initial === "pt" ? 0 : 1].focus();
+  });
 }
