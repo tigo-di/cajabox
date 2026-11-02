@@ -18,10 +18,14 @@ O cajabox lista os arquivos de pastas cadastradas e permite filtrá-los pelos te
 
 ## Instalar
 
-1. Gere o AppImage (precisa de Docker): `scripts/build-appimage.sh` — o arquivo fica em `release/`.
+Baixe `cajabox_X.Y.Z_amd64.AppImage` na página de [Releases](https://github.com/tigo-di/cajabox/releases), torne-o executável (`chmod +x`) e execute.
+
+Para colocá-lo no menu de aplicativos, a partir de um clone deste repositório:
+
+1. Coloque o AppImage em `release/` — ou gere a partir do código (precisa de Docker): `scripts/build-appimage.sh`.
 2. Instale para o seu usuário: `scripts/install.sh` — copia o AppImage para `~/.local/bin` e cria a entrada no menu de aplicativos.
 
-Para atualizar, gere e instale de novo. Para remover: `scripts/install.sh --uninstall` (a configuração em `~/.config/cajabox` é mantida).
+Para atualizar, instale o AppImage novo do mesmo jeito. Para remover: `scripts/install.sh --uninstall` (a configuração em `~/.config/cajabox` é mantida).
 
 Na primeira execução, o programa pergunta o idioma (português ou inglês) e cria pastas de exemplo na sua pasta de Documentos (`cajabox-exemplo`, ou `cajabox-examples` em inglês) para mostrar como funciona (arquivos com `.example` no nome). Quando não precisar mais, apague a pasta e remova as pastas de exemplo em "Editar pastas". Para recriá-las: Configurações → "Criar pastas de exemplo".
 

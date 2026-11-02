@@ -18,10 +18,14 @@ cajabox lists the files in registered folders and lets you filter them by the te
 
 ## Install
 
-1. Build the AppImage (requires Docker): `scripts/build-appimage.sh` — the file goes to `release/`.
+Download `cajabox_X.Y.Z_amd64.AppImage` from the [Releases](https://github.com/tigo-di/cajabox/releases) page, make it executable (`chmod +x`) and run it.
+
+To add it to the application menu, from a clone of this repository:
+
+1. Put the AppImage in `release/` — or build it from source (requires Docker): `scripts/build-appimage.sh`.
 2. Install it for your user: `scripts/install.sh` — copies the AppImage to `~/.local/bin` and creates the application menu entry.
 
-To update, build and install again. To remove: `scripts/install.sh --uninstall` (the configuration in `~/.config/cajabox` is kept).
+To update, install the new AppImage the same way. To remove: `scripts/install.sh --uninstall` (the configuration in `~/.config/cajabox` is kept).
 
 On the first run, cajabox asks for the language (Portuguese or English) and creates example folders in your Documents folder (`cajabox-examples`, or `cajabox-exemplo` in Portuguese) to show how it works (files with `.example` in the name). When you no longer need them, delete the folder and remove the example folders under Folders › Edit. To recreate them: Settings → "Create example folders".
 

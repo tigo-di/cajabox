@@ -30,5 +30,9 @@ docker run --rm "${VOLUMES[@]}" -u "$(id -u):$(id -g)" "$IMAGE" bash -c '
     cp src-tauri/target/release/bundle/appimage/*.AppImage release/
 '
 
+# só o AppImage recém-gerado fica em release/ (versões publicadas estão nas Releases do GitHub)
+NEW="$(ls -t "$ROOT"/release/*.AppImage | head -1)"
+find "$ROOT/release" -maxdepth 1 -name '*.AppImage' ! -path "$NEW" -delete
+
 echo "==> Pronto:"
-ls -lh "$ROOT"/release/*.AppImage
+ls -lh "$NEW"
