@@ -1,6 +1,17 @@
-import type { FileEntry } from "./types";
+import type { FileDate, FileEntry } from "./types";
 
-/** "none" = só arquivos sem data. */
+/** Data usada pelo programa: a do nome (escolhida pelo usuário) ou, sem ela, a de modificação do
+ * arquivo, no fuso horário local. `fromFile` diferencia as duas na tela. */
+export type EffectiveDate = FileDate & { fromFile: boolean };
+
+export function effectiveDate(file: FileEntry): EffectiveDate | null {
+  if (file.date) return { ...file.date, fromFile: false };
+  if (!file.modified) return null;
+  const date = new Date(file.modified);
+  return { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate(), fromFile: true };
+}
+
+/** "none" = só arquivos sem data no nome. */
 export type YearFilter = number | "none" | null;
 
 export interface Filters {
@@ -38,20 +49,22 @@ export function matches(file: FileEntry, filters: Filters): boolean {
     if (!file.terms[s]?.includes(t)) return false;
   }
   if (filters.year === "none") return file.date === null;
-  if (filters.year !== null && file.date?.year !== filters.year) return false;
-  if (filters.month !== null && file.date?.month !== filters.month) return false;
+  const date = effectiveDate(file);
+  if (filters.year !== null && date?.year !== filters.year) return false;
+  if (filters.month !== null && date?.month !== filters.month) return false;
   return true;
 }
 
 /** Anos presentes nos arquivos, do mais recente para o mais antigo. */
 export function yearsOf(files: FileEntry[]): number[] {
-  return [...new Set(files.flatMap((f) => (f.date ? [f.date.year] : [])))].sort((a, b) => b - a);
+  return [...new Set(files.flatMap((f) => effectiveDate(f)?.year ?? []))].sort((a, b) => b - a);
 }
 
 /** Meses presentes nos arquivos (do ano escolhido, se houver), em ordem. */
 export function monthsOf(files: FileEntry[], year: YearFilter): number[] {
-  const months = files.flatMap((f) =>
-    f.date && (year === null || f.date.year === year) ? [f.date.month] : [],
-  );
+  const months = files.flatMap((f) => {
+    const date = effectiveDate(f);
+    return date && (year === null || date.year === year) ? [date.month] : [];
+  });
   return [...new Set(months)].sort((a, b) => a - b);
 }

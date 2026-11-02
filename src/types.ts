@@ -41,6 +41,8 @@ export interface FileEntry {
   path: string;
   /** Tamanho em bytes. */
   size: number;
+  /** Data de modificação (milissegundos desde 1970); usada quando não há data no nome. */
+  modified: number;
   /** Uma lista por seção do índice, com as posições dos termos encontrados. */
   terms: number[][];
   date: FileDate | null;

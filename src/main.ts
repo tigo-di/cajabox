@@ -5,7 +5,7 @@ import { ask, message, open } from "@tauri-apps/plugin-dialog";
 
 import { openAbout } from "./about";
 import { $, button, choose, el, promptText } from "./dom";
-import { emptyFilters, isEmpty, matches, monthsOf, termKey, yearsOf, type YearFilter } from "./filter";
+import { effectiveDate, emptyFilters, isEmpty, matches, monthsOf, termKey, yearsOf, type YearFilter } from "./filter";
 import { openFoldersEditor } from "./folders-editor";
 import { openIndexEditor } from "./index-editor";
 import { openSettings } from "./settings";
@@ -413,6 +413,14 @@ function showTable(table: HTMLElement) {
   content.scrollTop = scroll;
 }
 
+/** Data efetiva; a que vem do arquivo (sem data no nome) aparece em cinza e itálico, com dica. */
+function dateCell(file: FileEntry) {
+  const date = effectiveDate(file);
+  const cell = el("td", { class: date?.fromFile ? "date from-file" : "date" }, date ? formatDate(date) : "");
+  if (date?.fromFile) cell.title = "Data de modificação do arquivo (sem data no nome)";
+  return cell;
+}
+
 /** Linha de um arquivo (com coluna Tamanho no modo Duplicados). */
 function fileRow(file: FileEntry, withSize = false): HTMLTableRowElement {
   const slash = file.relative_path.lastIndexOf("/");
@@ -422,7 +430,7 @@ function fileRow(file: FileEntry, withSize = false): HTMLTableRowElement {
     el("td", { class: "name" }, file.name),
     el("td", { class: "subdir" }, slash > 0 ? subdirLink(file) : ""),
     termChips(file),
-    el("td", { class: "date" }, file.date ? formatDate(file.date) : ""),
+    dateCell(file),
     withSize ? el("td", { class: "size" }, formatSize(file.size)) : "",
   );
   row.classList.toggle("selected", selected.has(file.path));
@@ -722,7 +730,7 @@ function renderFilters() {
   }
 
   const yearOptions: [string, string][] = [["", "Todos os anos"], ...yearsOf(files).map((y): [string, string] => [String(y), String(y)])];
-  if (files.some((f) => f.date === null)) yearOptions.push(["none", "Sem data"]);
+  if (files.some((f) => f.date === null)) yearOptions.push(["none", "Sem data no nome"]);
   const monthOptions: [string, string][] = [
     ["", "Todos os meses"],
     ...monthsOf(files, filters.year).map((m): [string, string] => [String(m), MONTHS[m - 1]]),

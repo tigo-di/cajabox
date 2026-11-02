@@ -77,7 +77,9 @@ Uma pasta por linha: `nome|descrição|caminho absoluto`
 ## Datas
 - Token de 6 dígitos `YYMMDD` ou 4 dígitos `YYMM` (sempre separado por `-`, `_` ou espaço), opcionalmente com `v` na frente (`v241031`, de versão); a lista mostra só a data
 - Ano = 20YY; mês 01–12 e dia 01–31 validados, senão o token não é data
-- Mais de uma data no nome: arquivo considerado sem data
+- Mais de uma data no nome: arquivo considerado sem data no nome
+- Sem data no nome: vale a data de modificação do arquivo (em cinza/itálico na lista); filtros e ordenação usam essa data efetiva; filtro "Sem data no nome" lista esses arquivos
+- Copiar e mover (inclusive entre discos) mantêm a data de modificação
 - `.example` antes da extensão é ignorado (arquivos de exemplo: `nome-241129.example.png`)
 
 # Filtros
@@ -89,7 +91,7 @@ Uma pasta por linha: `nome|descrição|caminho absoluto`
 # Ordenação
 - Clique no título "Nome" ou "Data"; clicar de novo inverte; escolha lembrada
 - Nome: só o nome do arquivo, ordem natural (ep2 < ep10), sem diferenciar maiúsculas e acentos
-- Data: a data do nome; começa pelos mais recentes; sem data sempre no fim; empate pelo nome
+- Data: a data efetiva (nome ou, sem ela, modificação do arquivo); começa pelos mais recentes; empate pelo nome
 
 # Operações com arquivos
 - Abrir arquivo com o programa padrão: duplo clique na linha ou Enter (selecionados)

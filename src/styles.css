@@ -353,6 +353,11 @@ button.link.path-link:hover {
   font-variant-numeric: tabular-nums;
 }
 
+.files .date.from-file {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .chip {
   display: inline-block;
   padding: 1px 7px;
