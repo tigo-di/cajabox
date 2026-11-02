@@ -35,7 +35,7 @@ impl FolderWatcher {
         .map_err(|e| e.to_string())?;
         watcher
             .watch(root, RecursiveMode::Recursive)
-            .map_err(|e| format!("Não foi possível observar {}: {e}", root.display()))?;
+            .map_err(|e| crate::tr!("Não foi possível observar {}: {e}", "Could not watch {}: {e}", root.display()))?;
         debounce(rx, on_change);
         *current = Some(watcher);
         Ok(())
@@ -70,7 +70,7 @@ impl ConfigWatcher {
         for dir in dirs {
             watcher
                 .watch(dir, RecursiveMode::NonRecursive)
-                .map_err(|e| format!("Não foi possível observar {}: {e}", dir.display()))?;
+                .map_err(|e| crate::tr!("Não foi possível observar {}: {e}", "Could not watch {}: {e}", dir.display()))?;
         }
         debounce(rx, on_change);
         *current = Some(watcher);

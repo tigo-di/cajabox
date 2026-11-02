@@ -24,7 +24,7 @@ pub struct FileEntry {
 /// Links simbólicos para pastas não são seguidos. Subpastas sem permissão de leitura são puladas.
 pub fn list_files(root: &Path, classifier: &Classifier) -> io::Result<Vec<FileEntry>> {
     if !fs::metadata(root)?.is_dir() {
-        return Err(io::Error::new(io::ErrorKind::NotADirectory, "não é uma pasta"));
+        return Err(io::Error::new(io::ErrorKind::NotADirectory, crate::tr!("não é uma pasta", "not a folder")));
     }
     let mut files = Vec::new();
     walk(root, root, classifier, &mut files);

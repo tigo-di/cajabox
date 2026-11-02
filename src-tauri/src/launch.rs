@@ -17,7 +17,7 @@ const APPIMAGE_ONLY: [&str; 5] = ["APPDIR", "APPIMAGE", "ARGV0", "OWD", "GTK_THE
 pub fn open(path: &Path) -> Result<(), String> {
     let context = gdk::Display::default()
         .and_then(|display| display.app_launch_context())
-        .ok_or("Sem acesso à sessão gráfica")?;
+        .ok_or_else(|| crate::tr!("Sem acesso à sessão gráfica", "No access to the graphical session"))?;
     if let Some(appdir) = std::env::var_os("APPDIR") {
         for (name, value) in clean_env(std::env::vars_os(), Path::new(&appdir)) {
             match value {

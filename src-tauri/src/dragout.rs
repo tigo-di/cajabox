@@ -44,7 +44,7 @@ pub fn start(window: &ApplicationWindow, paths: &[PathBuf], on_end: impl Fn() + 
             for id in handlers.borrow_mut().drain(..) {
                 window.disconnect(id);
             }
-            Err("Não foi possível iniciar o arrasto".into())
+            Err(crate::tr!("Não foi possível iniciar o arrasto", "Could not start dragging"))
         }
     }
 }

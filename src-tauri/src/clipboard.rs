@@ -138,7 +138,7 @@ pub mod system {
                 data.set_text(&text);
             }
         });
-        if ok { Ok(()) } else { Err("Não foi possível usar a área de transferência".into()) }
+        if ok { Ok(()) } else { Err(crate::tr!("Não foi possível usar a área de transferência", "Could not use the clipboard")) }
     }
 
     fn read(clipboard: &Clipboard, target: &str) -> Option<String> {

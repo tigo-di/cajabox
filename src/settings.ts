@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { ask, message, open } from "@tauri-apps/plugin-dialog";
 
 import { button, el } from "./dom";
+import { currentLang, t } from "./i18n";
 import type { State } from "./types";
 
 type ConfigFile = "index" | "paths";
@@ -17,17 +18,17 @@ export function openSettings(state: State, onMoved: (state: State) => void) {
 
   function render(current: State) {
     const entries: [ConfigFile, string, string][] = [
-      ["index", "Índice", current.config.index],
-      ["paths", "Pastas", current.config.paths],
+      ["index", t("settings.index"), current.config.index],
+      ["paths", t("settings.folders"), current.config.paths],
     ];
     rows.replaceChildren(
       ...entries.map(([file, label, path]) => {
         const actions = el("div", { class: "settings-actions" });
         // "Local padrão" só aparece fora de ~/.config/manabox (ou com nome antigo)
         if (path !== `${current.default_dir}/manabox.${file}.md`) {
-          actions.append(button("Local padrão", () => move(file, current.default_dir)));
+          actions.append(button(t("settings.defaultLocation"), () => move(file, current.default_dir)));
         }
-        actions.append(button("Mover…", () => choose(file, path)));
+        actions.append(button(t("settings.move"), () => choose(file, path)));
         return el(
           "div",
           { class: "settings-file" },
@@ -39,7 +40,7 @@ export function openSettings(state: State, onMoved: (state: State) => void) {
   }
 
   async function choose(file: ConfigFile, path: string) {
-    const dest = await open({ directory: true, defaultPath: parentOf(path), title: "Mover para…" });
+    const dest = await open({ directory: true, defaultPath: parentOf(path), title: t("settings.moveTo") });
     if (typeof dest === "string") await move(file, dest);
   }
 
@@ -48,8 +49,8 @@ export function openSettings(state: State, onMoved: (state: State) => void) {
     try {
       let result = await invoke<MoveResult>("move_config_file", { file, destDir: dest, overwrite: false });
       if (result.status === "exists") {
-        const replace = await ask(`Já existe ${result.path}.\nSubstituir pelo arquivo atual?`, {
-          title: "Arquivo já existe",
+        const replace = await ask(t("settings.exists", { path: result.path }), {
+          title: t("exists.title"),
           kind: "warning",
         });
         if (!replace) return;
@@ -71,20 +72,42 @@ export function openSettings(state: State, onMoved: (state: State) => void) {
       render(next);
       onMoved(next);
       await message(
-        `Pastas de exemplo em ${next.example_dir}, já cadastradas e com os termos no índice. Nada que existia foi alterado.`,
-        { title: "Pastas de exemplo" },
+        t("settings.examplesDone", { dir: next.example_dir }),
+        { title: t("settings.examplesTitle") },
       );
     } catch (e) {
       error.textContent = String(e);
     }
   }
 
+  const languageSelect = el(
+    "select",
+    { "aria-label": t("language.title") },
+    el("option", { value: "pt" }, "Português"),
+    el("option", { value: "en" }, "English"),
+  );
+  languageSelect.value = currentLang();
+  languageSelect.addEventListener("change", async () => {
+    try {
+      await invoke("set_language", { language: languageSelect.value });
+      location.reload(); // textos da interface são montados na abertura
+    } catch (e) {
+      error.textContent = String(e);
+    }
+  });
+
   render(state);
   const dialog = el(
     "dialog",
     { class: "editor settings" },
-    el("h2", {}, "Configurações"),
-    el("p", { class: "hint" }, "Arquivos onde o programa guarda o índice e as pastas. Ao mover, o nome é sempre manabox.index.md / manabox.paths.md."),
+    el("h2", {}, t("settings.title")),
+    el("p", { class: "hint" }, t("settings.hint")),
+    el(
+      "div",
+      { class: "settings-file" },
+      el("div", {}, el("div", { class: "settings-label" }, t("language.title")), el("div", { class: "hint" }, t("language.hint"))),
+      el("div", { class: "settings-actions" }, languageSelect),
+    ),
     rows,
     el(
       "div",
@@ -92,13 +115,13 @@ export function openSettings(state: State, onMoved: (state: State) => void) {
       el(
         "div",
         {},
-        el("div", { class: "settings-label" }, "Exemplo"),
-        el("div", { class: "hint" }, "Duas pastas com arquivos de teste e os termos correspondentes no índice. Não altera o que já existe."),
+        el("div", { class: "settings-label" }, t("settings.examples")),
+        el("div", { class: "hint" }, t("settings.examplesHint")),
       ),
-      el("div", { class: "settings-actions" }, button("Criar pastas de exemplo", createExamples)),
+      el("div", { class: "settings-actions" }, button(t("settings.createExamples"), createExamples)),
     ),
     error,
-    el("div", { class: "editor-actions" }, button("Fechar", () => dialog.close(), "primary")),
+    el("div", { class: "editor-actions" }, button(t("common.close"), () => dialog.close(), "primary")),
   );
   dialog.addEventListener("close", () => dialog.remove());
   document.body.append(dialog);

@@ -4,19 +4,16 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { ask, message, open } from "@tauri-apps/plugin-dialog";
 
 import { openAbout } from "./about";
-import { $, button, choose, el, promptText } from "./dom";
+import { currentLang, formatDate, monthName, setLang, systemLang, t, type Key } from "./i18n";
+import { $, button, choose, chooseLanguage, el, promptText } from "./dom";
 import { effectiveDate, emptyFilters, isEmpty, matches, monthsOf, termKey, yearsOf, type YearFilter } from "./filter";
 import { openFoldersEditor } from "./folders-editor";
 import { openIndexEditor } from "./index-editor";
 import { openSettings } from "./settings";
 import { readSort, saveSort, sortFiles, toggleSort, type SortKey } from "./sort";
-import type { FileDate, FileEntry, Folder, State } from "./types";
+import type { FileEntry, Folder, State } from "./types";
 
 const LAST_FOLDER_KEY = "manabox.lastFolder";
-const MONTHS = [
-  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
-];
 
 let state: State | null = null;
 let current: Folder | null = null;
@@ -70,10 +67,6 @@ let draggingOut = false;
 
 type FileResult = { status: "done" | "exists"; path: string };
 
-function formatDate(date: FileDate): string {
-  const mm = String(date.month).padStart(2, "0");
-  return date.day === null ? `${mm}/${date.year}` : `${String(date.day).padStart(2, "0")}/${mm}/${date.year}`;
-}
 
 function readLastFolder(): string | null {
   try {
@@ -112,8 +105,8 @@ function renderFolders() {
 }
 
 function countLabel(shown: number, total: number): string {
-  const noun = total === 1 ? "arquivo" : "arquivos";
-  return shown === total ? `${total} ${noun}` : `${shown} de ${total} ${noun}`;
+  const noun = t(total === 1 ? "count.file" : "count.files");
+  return shown === total ? `${total} ${noun}` : t("count.of", { shown, total, noun });
 }
 
 /** `shown` null = ainda carregando. */
@@ -132,16 +125,16 @@ function renderHeader(shown: number | null) {
         : el(
             "span",
             { class: "count" },
-            duplicates?.groups ? `${shown} duplicados de ${files.length} arquivos` : countLabel(shown, files.length),
+            duplicates?.groups ? t("duplicates.count", { shown, total: files.length }) : countLabel(shown, files.length),
           ),
     ),
     current.description ? el("p", { class: "desc" }, current.description) : "",
     el("p", { class: "path" }, folderLink(current.path, current.path)),
-    state && current.path.startsWith(`${state.example_dir}/`)
+    state?.example_dirs.some((dir) => current?.path.startsWith(`${dir}/`))
       ? el(
           "p",
           { class: "notice" },
-          "Pasta de exemplo, com arquivos para testar o programa. Quando não precisar mais, apague a pasta e remova-a em “Editar pastas”.",
+          t("example.notice"),
         )
       : "",
   );
@@ -153,10 +146,10 @@ function folderLink(label: string, path: string) {
     try {
       await invoke("open_folder", { path });
     } catch (error) {
-      await message(String(error), { title: "Abrir pasta", kind: "error" });
+      await message(String(error), { title: t("openFolder.title"), kind: "error" });
     }
   }, "link path-link");
-  link.title = "Abrir no gerenciador de arquivos";
+  link.title = t("openFolder.hint");
   return link;
 }
 
@@ -176,12 +169,12 @@ function termChips(file: FileEntry): HTMLElement {
   const cell = el("td", { class: "terms" });
   const sections = state?.index.sections ?? [];
   file.terms.forEach((found, s) => {
-    for (const t of found) {
+    for (const position of found) {
       const section = sections[s];
-      const name = section?.terms[t]?.name ?? "?";
-      const key = termKey(s, t);
+      const name = section?.terms[position]?.name ?? "?";
+      const key = termKey(s, position);
       const active = filters.terms.has(key);
-      const title = `${section?.name ?? ""}: ${active ? "remover filtro" : "filtrar por"} ${name}`;
+      const title = t(active ? "chip.removeFilter" : "chip.filterBy", { section: section?.name ?? "", term: name });
       const chip = el("span", { class: `chip row-chip s${s % 6}`, title, "data-term": key }, name);
       chip.classList.toggle("selected", active);
       cell.append(chip);
@@ -213,52 +206,52 @@ function renderToolbar() {
   if (!current || (files.length === 0 && clipboard.paths.length === 0)) return;
 
   const count = selected.size;
-  const rename = button("Renomear", renameSelected);
+  const rename = button(t("toolbar.rename"), renameSelected);
   rename.disabled = count !== 1;
   rename.title = "F2";
-  const copy = button("Copiar", () => toClipboard("copy"));
+  const copy = button(t("toolbar.copy"), () => toClipboard("copy"));
   copy.disabled = count === 0;
   copy.title = "Ctrl+C";
-  const cut = button("Recortar", () => toClipboard("cut"));
+  const cut = button(t("toolbar.cut"), () => toClipboard("cut"));
   cut.disabled = count === 0;
   cut.title = "Ctrl+X";
-  const remove = button("Excluir", trashSelected, "danger");
+  const remove = button(t("toolbar.delete"), trashSelected, "danger");
   remove.disabled = count === 0;
   remove.title = "Delete";
-  const info = count ? `${count} ${count === 1 ? "selecionado" : "selecionados"}` : "Nenhum selecionado";
+  const info = count ? t(count === 1 ? "toolbar.selectedOne" : "toolbar.selectedMany", { n: count }) : t("toolbar.noneSelected");
   bar.append(el("div", { class: "toolbar-group" }, el("span", { class: "toolbar-info" }, info), rename, copy, cut, remove));
 
   const searching = duplicates?.groups === null;
   const modeButton = (label: string, mode: DuplicateMode) => {
     const active = duplicates?.mode === mode;
     const node = button(label, () => (active ? exitDuplicates() : findDuplicates(mode)), active ? "primary" : "");
-    node.title = active ? "Sair do modo Duplicados" : `Arquivos repetidos na pasta, por ${label.toLowerCase()}`;
+    node.title = t(active ? "duplicates.exitHint" : mode === "name" ? "duplicates.nameHint" : "duplicates.contentHint");
     return node;
   };
   bar.append(
     el(
       "div",
       { class: "toolbar-group" },
-      el("span", { class: "toolbar-info" }, "Duplicados:"),
-      modeButton("Nome", "name"),
-      modeButton("Conteúdo", "content"),
-      duplicates ? button(searching ? "Cancelar" : "Sair", exitDuplicates) : "",
+      el("span", { class: "toolbar-info" }, t("duplicates.label")),
+      modeButton(t("duplicates.byName"), "name"),
+      modeButton(t("duplicates.byContent"), "content"),
+      duplicates ? button(searching ? t("common.cancel") : t("duplicates.exit"), exitDuplicates) : "",
     ),
   );
 
   const pending = clipboard.paths.length;
   if (pending) {
-    const label = clipboard.mode === "copy" ? ["copiado", "copiados"] : ["recortado", "recortados"];
-    const here = button("Colar aqui", () => current && paste(current.path), "primary");
-    here.title = "Ctrl+V — na raiz da pasta aberta";
+    const label = clipboard.mode === "copy" ? ["clipboard.copiedOne", "clipboard.copiedMany"] as const : ["clipboard.cutOne", "clipboard.cutMany"] as const;
+    const here = button(t("paste.here"), () => current && paste(current.path), "primary");
+    here.title = t("paste.hereHint");
     bar.append(
       el(
         "div",
         { class: "toolbar-group" },
-        el("span", { class: "toolbar-info" }, `${pending} ${label[pending === 1 ? 0 : 1]}`),
+        el("span", { class: "toolbar-info" }, t(label[pending === 1 ? 0 : 1], { n: pending })),
         here,
-        button("Colar em…", pasteInto),
-        button("Cancelar", () => {
+        button(t("paste.into"), pasteInto),
+        button(t("common.cancel"), () => {
           setClipboard([], "copy");
         }),
       ),
@@ -270,7 +263,7 @@ function renderToolbar() {
 function sortHeader(label: string, key: SortKey) {
   const active = sort.key === key;
   const arrow = active ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
-  const th = el("th", { class: active ? "sortable sorted" : "sortable", title: "Ordenar" }, label + arrow);
+  const th = el("th", { class: active ? "sortable sorted" : "sortable", title: t("sort.hint") }, label + arrow);
   if (active) th.setAttribute("aria-sort", sort.dir === "asc" ? "ascending" : "descending");
   th.addEventListener("click", () => {
     sort = toggleSort(sort, key);
@@ -280,7 +273,6 @@ function sortHeader(label: string, key: SortKey) {
   return th;
 }
 
-const sizeFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 
 /** Tamanho legível (unidades de 1000, como no Nautilus). */
 function formatSize(bytes: number): string {
@@ -291,7 +283,8 @@ function formatSize(bytes: number): string {
     value /= 1000;
     unit++;
   }
-  return `${sizeFormat.format(value)} ${units[unit]}`;
+  const number = new Intl.NumberFormat(currentLang() === "pt" ? "pt-BR" : "en", { maximumFractionDigits: 1 });
+  return `${number.format(value)} ${units[unit]}`;
 }
 
 /** Entra no modo Duplicados (ou troca o critério) e busca; sem `mode`, refaz a busca atual. */
@@ -314,7 +307,7 @@ async function findDuplicates(mode?: DuplicateMode) {
   } catch (error) {
     if (run !== duplicatesRun) return;
     duplicates = null;
-    await message(String(error), { title: "Duplicados", kind: "error" });
+    await message(String(error), { title: t("duplicates.title"), kind: "error" });
   }
   update();
 }
@@ -345,11 +338,11 @@ function renderFiles() {
   renderHeader(visible.length);
   renderToolbar();
   if (files.length === 0) {
-    renderMessage("Pasta vazia.");
+    renderMessage(t("list.empty"));
     return;
   }
   if (visible.length === 0) {
-    renderMessage("Nenhum arquivo corresponde aos filtros ou à busca.");
+    renderMessage(t("list.noMatch"));
     return;
   }
   const body = el("tbody");
@@ -360,7 +353,7 @@ function renderFiles() {
     el(
       "thead",
       {},
-      el("tr", {}, sortHeader("Nome", "name"), el("th", {}, "Subpasta"), el("th", {}, "Termos"), sortHeader("Data", "date")),
+      el("tr", {}, sortHeader(t("col.name"), "name"), el("th", {}, t("col.subfolder")), el("th", {}, t("col.terms")), sortHeader(t("col.date"), "date")),
     ),
     body,
   );
@@ -377,19 +370,19 @@ function renderDuplicates() {
   renderToolbar();
   if (!duplicates || duplicates.groups === null) {
     const [done, total] = duplicates?.progress ?? [0, 0];
-    renderMessage(total ? `Verificando… ${done} de ${total}` : "Procurando duplicados…");
+    renderMessage(total ? t("duplicates.checking", { done, total }) : t("duplicates.searching"));
     return;
   }
   if (groups.length === 0) {
-    renderMessage("Nenhum arquivo duplicado nesta pasta.");
+    renderMessage(t("duplicates.none"));
     return;
   }
   const body = el("tbody");
   for (const group of groups) {
     const title =
       duplicates.mode === "content"
-        ? `${group.length} arquivos iguais · ${formatSize(group[0].size)} cada`
-        : `${group.length} arquivos com o nome “${group[0].name}”`;
+        ? t("duplicates.groupContent", { n: group.length, size: formatSize(group[0].size) })
+        : t("duplicates.groupName", { n: group.length, name: group[0].name });
     body.append(el("tr", { class: "group-row" }, el("td", { colspan: "5" }, title)));
     for (const file of group) body.append(fileRow(file, true));
   }
@@ -399,7 +392,7 @@ function renderDuplicates() {
     el(
       "thead",
       {},
-      el("tr", {}, el("th", {}, "Nome"), el("th", {}, "Subpasta"), el("th", {}, "Termos"), el("th", {}, "Data"), el("th", { class: "size" }, "Tamanho")),
+      el("tr", {}, el("th", {}, t("col.name")), el("th", {}, t("col.subfolder")), el("th", {}, t("col.terms")), el("th", {}, t("col.date")), el("th", { class: "size" }, t("col.size"))),
     ),
     body,
   );
@@ -418,10 +411,7 @@ function dateCell(file: FileEntry) {
   const date = effectiveDate(file);
   const cell = el("td", { class: date?.fromFile ? "date from-file" : "date" }, date ? formatDate(date) : "");
   if (date?.fromFile) {
-    cell.title =
-      "Data de modificação do arquivo.\n" +
-      "Para fixar a data de uso, coloque-a no nome: AAMMDD (dia) ou AAMM (mês). " +
-      "Ex.: news-241129.png, insta-2501.png";
+    cell.title = t("date.fromFile");
   }
   return cell;
 }
@@ -489,7 +479,7 @@ async function openFiles(paths: string[]) {
       errors.push(String(error));
     }
   }
-  if (errors.length) await message(errors.join("\n"), { title: "Abrir", kind: "error" });
+  if (errors.length) await message(errors.join("\n"), { title: t("open.title"), kind: "error" });
 }
 
 async function renameSelected() {
@@ -497,7 +487,7 @@ async function renameSelected() {
   const path = [...selected][0];
   const name = path.slice(path.lastIndexOf("/") + 1);
   const dot = name.lastIndexOf(".");
-  const newName = await promptText("Renomear", name, dot > 0 ? dot : name.length);
+  const newName = await promptText(t("rename.title"), name, dot > 0 ? dot : name.length);
   if (newName === null || newName === name) return;
   try {
     const newPath = await invoke<string>("rename_file", { path, newName });
@@ -507,7 +497,7 @@ async function renameSelected() {
     selected = new Set([newPath]);
     anchor = newPath;
   } catch (error) {
-    await message(String(error), { title: "Renomear", kind: "error" });
+    await message(String(error), { title: t("rename.title"), kind: "error" });
   }
   await reload();
 }
@@ -530,7 +520,7 @@ async function setClipboard(paths: string[], mode: "copy" | "cut") {
     else await invoke("clipboard_clear");
     clipboard = { mode, paths, skipped: [] };
   } catch (error) {
-    await message(String(error), { title: "Área de transferência", kind: "error" });
+    await message(String(error), { title: t("clipboard.title"), kind: "error" });
   }
   renderFiles();
 }
@@ -542,8 +532,8 @@ function toClipboard(mode: "copy" | "cut") {
 async function trashSelected() {
   const paths = [...selected];
   if (paths.length === 0) return;
-  const what = paths.length === 1 ? `“${paths[0].slice(paths[0].lastIndexOf("/") + 1)}”` : `${paths.length} arquivos`;
-  if (!(await ask(`Enviar ${what} para a lixeira?`, { title: "Excluir", kind: "warning" }))) return;
+  const what = paths.length === 1 ? `“${paths[0].slice(paths[0].lastIndexOf("/") + 1)}”` : t("files.many", { n: paths.length });
+  if (!(await ask(t("trash.confirm", { what }), { title: t("trash.title"), kind: "warning" }))) return;
   try {
     await invoke("trash_files", { paths });
     if (clipboard.paths.some((p) => paths.includes(p))) {
@@ -551,13 +541,13 @@ async function trashSelected() {
     }
     selected.clear();
   } catch (error) {
-    await message(String(error), { title: "Excluir", kind: "error" });
+    await message(String(error), { title: t("trash.title"), kind: "error" });
   }
   await reload();
 }
 
 async function warnSkipped(skipped: string[]) {
-  if (skipped.length) await message(`Só arquivos podem ser colados. Ignorados:\n${skipped.join("\n")}`, { title: "Colar", kind: "warning" });
+  if (skipped.length) await message(t("paste.skipped", { list: skipped.join("\n") }), { title: t("paste.title"), kind: "warning" });
 }
 
 /** Copia ou move `paths` para `dest`; em conflito pergunta por arquivo se substitui. */
@@ -569,7 +559,7 @@ async function transfer(paths: string[], mode: "copy" | "cut", dest: string) {
     try {
       let result = await invoke<FileResult>(command, { path, destDir: dest, overwrite: false });
       if (result.status === "exists") {
-        const replace = await ask(`Já existe ${result.path}.\nSubstituir?`, { title: "Arquivo já existe", kind: "warning" });
+        const replace = await ask(t("exists.replace", { path: result.path }), { title: t("exists.title"), kind: "warning" });
         if (!replace) continue;
         result = await invoke<FileResult>(command, { path, destDir: dest, overwrite: true });
       }
@@ -579,7 +569,7 @@ async function transfer(paths: string[], mode: "copy" | "cut", dest: string) {
     }
   }
   selected = new Set(pasted);
-  if (errors.length) await message(errors.join("\n"), { title: "Colar", kind: "error" });
+  if (errors.length) await message(errors.join("\n"), { title: t("paste.title"), kind: "error" });
   await reload();
 }
 
@@ -600,9 +590,9 @@ async function dropFiles(dropped: string[]) {
   const { paths, skipped } = await invoke<{ paths: string[]; skipped: string[] }>("split_files", { paths: dropped });
   await warnSkipped(skipped);
   if (paths.length === 0) return;
-  const what = paths.length === 1 ? `“${paths[0].slice(paths[0].lastIndexOf("/") + 1)}”` : `${paths.length} arquivos`;
-  const choice = await choose("Soltar arquivos", `${what} em ${folder.name}`, ["Copiar aqui", "Mover aqui"]);
-  if (choice) await transfer(paths, choice === "Copiar aqui" ? "copy" : "cut", folder.path);
+  const what = paths.length === 1 ? `“${paths[0].slice(paths[0].lastIndexOf("/") + 1)}”` : t("files.many", { n: paths.length });
+  const choice = await choose(t("drop.title"), t("drop.where", { what, folder: folder.name }), [t("drop.copy"), t("drop.move")]);
+  if (choice) await transfer(paths, choice === t("drop.copy") ? "copy" : "cut", folder.path);
 }
 
 /** Arrasta a seleção (ou só a linha, se não estiver selecionada) para outro programa. */
@@ -636,11 +626,11 @@ function onMouseMove(event: MouseEvent) {
 function setDropHighlight(on: boolean) {
   const content = $("#content");
   content.classList.toggle("drop-target", on && !!current && !content.querySelector(".message.error"));
-  if (current) content.dataset.drop = `Soltar em ${current.name}`;
+  if (current) content.dataset.drop = t("drop.target", { folder: current.name });
 }
 
 async function pasteInto() {
-  const dest = await open({ directory: true, defaultPath: current?.path, title: "Colar em…" });
+  const dest = await open({ directory: true, defaultPath: current?.path, title: t("paste.into") });
   if (typeof dest === "string") await paste(dest);
 }
 
@@ -726,19 +716,19 @@ function renderFilters() {
   if (search.value !== filters.search) search.value = filters.search; // ex.: após "Limpar filtros"
   const sections = state?.index.sections ?? [];
   if (sections.length === 0) {
-    panel.append(el("p", { class: "hint" }, "Índice vazio. Use “Editar índice” para criar seções e termos."));
+    panel.append(el("p", { class: "hint" }, t("filters.emptyIndex")));
   }
   if (!current || files.length === 0) return;
   if (duplicates) {
-    panel.replaceChildren(el("p", { class: "hint" }, "Filtros suspensos no modo Duplicados."));
+    panel.replaceChildren(el("p", { class: "hint" }, t("filters.suspended")));
     return;
   }
 
-  const yearOptions: [string, string][] = [["", "Todos os anos"], ...yearsOf(files).map((y): [string, string] => [String(y), String(y)])];
-  if (files.some((f) => f.date === null)) yearOptions.push(["none", "Sem data no nome"]);
+  const yearOptions: [string, string][] = [["", t("filters.allYears")], ...yearsOf(files).map((y): [string, string] => [String(y), String(y)])];
+  if (files.some((f) => f.date === null)) yearOptions.push(["none", t("filters.noNameDate")]);
   const monthOptions: [string, string][] = [
-    ["", "Todos os meses"],
-    ...monthsOf(files, filters.year).map((m): [string, string] => [String(m), MONTHS[m - 1]]),
+    ["", t("filters.allMonths")],
+    ...monthsOf(files, filters.year).map((m): [string, string] => [String(m), monthName(m)]),
   ];
   const yearSelect = select(yearOptions, filters.year === null ? "" : String(filters.year), (value) => {
     filters.year = value === "" ? null : value === "none" ? "none" : (Number(value) as YearFilter);
@@ -751,16 +741,16 @@ function renderFilters() {
   });
   monthSelect.disabled = filters.year === "none";
   const dateActive = filters.year !== null || filters.month !== null;
-  panel.append(filterGroup("date", "Data", dateActive ? "filtrada" : "", el("div", { class: "date-selects" }, yearSelect, monthSelect)));
+  panel.append(filterGroup("date", t("filters.date"), dateActive ? t("filters.dateActive") : "", el("div", { class: "date-selects" }, yearSelect, monthSelect)));
 
   sections.forEach((section, s) => {
     const chips = el("div", { class: "filter-chips" });
-    section.terms.forEach((term, t) => {
-      const key = termKey(s, t);
-      const count = files.filter((f) => f.terms[s]?.includes(t)).length;
+    section.terms.forEach((term, position) => {
+      const key = termKey(s, position);
+      const count = files.filter((f) => f.terms[s]?.includes(position)).length;
       const chip = el(
         "button",
-        { type: "button", class: `chip toggle s${s % 6}`, title: term.synonyms.length ? `também: ${term.synonyms.join(", ")}` : "" },
+        { type: "button", class: `chip toggle s${s % 6}`, title: term.synonyms.length ? t("filters.also", { list: term.synonyms.join(", ") }) : "" },
         term.name,
         el("span", { class: "chip-count" }, String(count)),
       );
@@ -793,7 +783,7 @@ async function selectFolder(folder: Folder) {
   renderFilters();
   renderHeader(null);
   $("#toolbar").replaceChildren();
-  renderMessage("Carregando…");
+  renderMessage(t("list.loading"));
   $("#content").scrollTop = 0;
   invoke("watch_folder", { path: folder.path }).catch((error) => console.error(error));
   await reload(); // ignora o resultado se outra pasta for escolhida enquanto carrega
@@ -833,7 +823,7 @@ async function reloadState() {
     return;
   }
   if (open && !next.folders.some((f) => f.name === open.name)) {
-    await message(`A pasta “${open.name}” não está mais na configuração.`, { title: "Configuração alterada", kind: "warning" });
+    await message(t("config.folderGone", { name: open.name }), { title: t("config.changedTitle"), kind: "warning" });
   }
   applyState(next);
 }
@@ -851,7 +841,18 @@ function applyState(next: State) {
     renderFolders();
     renderFilters();
     renderHeader(null);
-    renderMessage("Cadastre pastas para começar.");
+    renderMessage(t("list.start"));
+  }
+}
+
+/** Textos fixos do index.html, marcados com data-i18n (texto), data-i18n-placeholder e data-i18n-label. */
+function translatePage() {
+  for (const node of document.querySelectorAll<HTMLElement>("[data-i18n]")) node.textContent = t(node.dataset.i18n as Key);
+  for (const node of document.querySelectorAll<HTMLElement>("[data-i18n-placeholder]")) {
+    node.setAttribute("placeholder", t(node.dataset.i18nPlaceholder as Key));
+  }
+  for (const node of document.querySelectorAll<HTMLElement>("[data-i18n-label]")) {
+    node.setAttribute("aria-label", t(node.dataset.i18nLabel as Key));
   }
 }
 
@@ -909,10 +910,21 @@ async function init() {
     if (event.payload === current?.path) reload();
   });
   try {
-    applyState(await invoke<State>("load_state"));
+    let loaded = await invoke<State>("load_state");
+    if (loaded.config.language) {
+      setLang(loaded.config.language);
+    } else {
+      // sem idioma escolhido (primeira execução, ou versão anterior): pergunta, com o do sistema marcado
+      const language = await chooseLanguage(systemLang());
+      await invoke("set_language", { language });
+      setLang(language);
+      loaded = loaded.first_run ? await invoke<State>("create_examples") : await invoke<State>("load_state");
+    }
+    translatePage();
+    applyState(loaded);
     refreshClipboard();
   } catch (error) {
-    renderMessage(`Erro ao carregar configuração: ${error}`, "error");
+    renderMessage(t("config.loadError", { error: String(error) }), "error");
   }
 }
 

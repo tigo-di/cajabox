@@ -1,7 +1,8 @@
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { button, el } from "./dom";
-import { NOT_SAVED, saveConfig } from "./save-config";
+import { t } from "./i18n";
+import { notSaved, saveConfig } from "./save-config";
 import type { Folder, State } from "./types";
 
 /** Abre o editor de pastas (manabox.paths.md); `onSaved` recebe o estado já gravado. */
@@ -10,12 +11,12 @@ export function openFoldersEditor(folders: Folder[], version: string, onSaved: (
   const error = el("p", { class: "editor-error" });
 
   function addRow(folder: Folder) {
-    const name = el("input", { placeholder: "nome", value: folder.name, "aria-label": "Nome" });
-    const description = el("input", { placeholder: "descrição", value: folder.description, "aria-label": "Descrição" });
-    const path = el("input", { placeholder: "/caminho/absoluto", value: folder.path, "aria-label": "Caminho" });
+    const name = el("input", { placeholder: t("folders.namePlaceholder"), value: folder.name, "aria-label": t("folders.name") });
+    const description = el("input", { placeholder: t("folders.descriptionPlaceholder"), value: folder.description, "aria-label": t("folders.description") });
+    const path = el("input", { placeholder: t("folders.pathPlaceholder"), value: folder.path, "aria-label": t("folders.path") });
     const row = el("div", { class: "editor-row folder-row" }, name, description, path);
     row.append(
-      button("Escolher…", async () => {
+      button(t("folders.choose"), async () => {
         const chosen = await open({ directory: true, defaultPath: path.value || undefined });
         if (typeof chosen === "string") {
           path.value = chosen;
@@ -42,7 +43,7 @@ export function openFoldersEditor(folders: Folder[], version: string, onSaved: (
     try {
       const state = await saveConfig("save_folders", { folders: collect() }, version);
       if (!state) {
-        error.textContent = NOT_SAVED;
+        error.textContent = notSaved();
         return;
       }
       dialog.close();
@@ -56,13 +57,13 @@ export function openFoldersEditor(folders: Folder[], version: string, onSaved: (
   const dialog = el(
     "dialog",
     { class: "editor" },
-    el("h2", {}, "Pastas"),
-    el("p", { class: "hint" }, "Pastas listadas pelo programa. O caminho é lido recursivamente."),
-    el("div", { class: "editor-row folder-row editor-head" }, el("span", {}, "Nome"), el("span", {}, "Descrição"), el("span", {}, "Caminho")),
+    el("h2", {}, t("folders.title")),
+    el("p", { class: "hint" }, t("folders.hint")),
+    el("div", { class: "editor-row folder-row editor-head" }, el("span", {}, t("folders.name")), el("span", {}, t("folders.description")), el("span", {}, t("folders.path"))),
     rows,
-    button("+ Adicionar pasta", () => addRow({ name: "", description: "", path: "" }).focus(), "link"),
+    button(t("folders.add"), () => addRow({ name: "", description: "", path: "" }).focus(), "link"),
     error,
-    el("div", { class: "editor-actions" }, button("Cancelar", () => dialog.close()), button("Salvar", save, "primary")),
+    el("div", { class: "editor-actions" }, button(t("common.cancel"), () => dialog.close()), button(t("common.save"), save, "primary")),
   );
   dialog.addEventListener("close", () => dialog.remove());
   document.body.append(dialog);

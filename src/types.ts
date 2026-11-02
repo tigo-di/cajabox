@@ -17,15 +17,19 @@ export interface Folder {
 }
 
 export interface State {
-  config: { index: string; paths: string };
+  config: { index: string; paths: string; language: "pt" | "en" | null };
   /** Pasta padrão de manabox.index.md e manabox.paths.md. */
   default_dir: string;
   index: { sections: Section[] };
   folders: Folder[];
   /** Versão (hash do conteúdo) de cada arquivo lido; o editor a devolve ao salvar. */
   versions: { index: string; paths: string };
-  /** Pasta das pastas de exemplo. */
+  /** Pasta das pastas de exemplo no idioma atual. */
   example_dir: string;
+  /** Pastas de exemplo de todos os idiomas (aviso na interface). */
+  example_dirs: string[];
+  /** Primeira execução: perguntar o idioma e criar os exemplos. */
+  first_run: boolean;
 }
 
 export interface FileDate {

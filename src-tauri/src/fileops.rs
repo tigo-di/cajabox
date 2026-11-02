@@ -32,22 +32,25 @@ fn copy_file(from: &Path, to: &Path) -> io::Result<()> {
 /// (arquivo oculto sumiria da listagem).
 pub fn rename(path: &Path, new_name: &str) -> Result<PathBuf, String> {
     if new_name.trim().is_empty() || new_name.contains('/') || new_name.starts_with('.') || new_name.trim() != new_name {
-        return Err("Nome inválido: não pode ser vazio, conter /, começar com . nem ter espaços nas pontas".into());
+        return Err(crate::tr!(
+            "Nome inválido: não pode ser vazio, conter /, começar com . nem ter espaços nas pontas",
+            "Invalid name: it cannot be empty, contain /, start with . or have leading or trailing spaces"
+        ));
     }
     let to = path.with_file_name(new_name);
     if to == path {
         return Ok(to);
     }
     if to.exists() {
-        return Err(format!("Já existe um arquivo chamado {new_name}"));
+        return Err(crate::tr!("Já existe um arquivo chamado {new_name}", "A file named {new_name} already exists"));
     }
-    fs::rename(path, &to).map_err(|e| format!("Erro ao renomear: {e}"))?;
+    fs::rename(path, &to).map_err(|e| crate::tr!("Erro ao renomear: {e}", "Error renaming: {e}"))?;
     Ok(to)
 }
 
 fn file_name(path: &Path) -> io::Result<&std::ffi::OsStr> {
     path.file_name()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "caminho sem nome de arquivo"))
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, crate::tr!("caminho sem nome de arquivo", "path without a file name")))
 }
 
 /// Move um arquivo para `dest_dir`, mantendo o nome. Sem `overwrite`, conflito volta como `Exists`.
@@ -70,7 +73,10 @@ pub fn copy_to(path: &Path, dest_dir: &Path, overwrite: bool) -> io::Result<Outc
     let name = file_name(path)?;
     let to = dest_dir.join(name);
     if to.exists() && fs::canonicalize(&to)? == fs::canonicalize(path)? {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "origem e destino são o mesmo arquivo"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            crate::tr!("origem e destino são o mesmo arquivo", "source and destination are the same file"),
+        ));
     }
     if to.exists() && !overwrite {
         return Ok(Outcome::Exists(to));

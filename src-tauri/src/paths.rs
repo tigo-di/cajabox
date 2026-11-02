@@ -7,6 +7,15 @@ use crate::markdown::strip_comments;
 
 /// Conteúdo inicial do manabox.paths.md; o comentário de ajuda é mantido ao gravar.
 pub const TEMPLATE: &str = include_str!("../../paths-sample.md");
+const TEMPLATE_EN: &str = include_str!("../../paths-sample.en.md");
+
+/// Comentário de ajuda no topo do arquivo, no idioma atual.
+pub fn template() -> &'static str {
+    match crate::i18n::current() {
+        crate::i18n::Lang::Pt => TEMPLATE,
+        crate::i18n::Lang::En => TEMPLATE_EN,
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Folder {
@@ -41,18 +50,21 @@ pub fn validate(folders: &[Folder]) -> Result<(), String> {
     for folder in folders {
         let label = if folder.name.is_empty() { &folder.path } else { &folder.name };
         if folder.name.trim().is_empty() {
-            return Err(format!("Pasta sem nome: {label}"));
+            return Err(crate::tr!("Pasta sem nome: {label}", "Folder without a name: {label}"));
         }
         if !Path::new(&folder.path).is_absolute() {
-            return Err(format!("{label}: o caminho precisa ser absoluto (começar com /)"));
+            return Err(crate::tr!("{label}: o caminho precisa ser absoluto (começar com /)", "{label}: the path must be absolute (start with /)"));
         }
         for field in [&folder.name, &folder.description, &folder.path] {
             if field.contains(['|', '\n', '\r']) || field.trim() != field {
-                return Err(format!("{label}: campos não podem conter | nem quebras de linha, nem espaços nas pontas"));
+                return Err(crate::tr!(
+                    "{label}: campos não podem conter | nem quebras de linha, nem espaços nas pontas",
+                    "{label}: fields cannot contain | or line breaks, nor leading or trailing spaces"
+                ));
             }
         }
         if !names.insert(folder.name.to_lowercase()) {
-            return Err(format!("Nome repetido: {}", folder.name));
+            return Err(crate::tr!("Nome repetido: {}", "Repeated name: {}", folder.name));
         }
     }
     Ok(())
@@ -60,7 +72,7 @@ pub fn validate(folders: &[Folder]) -> Result<(), String> {
 
 /// Gera o manabox.paths.md: comentário de ajuda seguido de uma pasta por linha.
 pub fn serialize(folders: &[Folder]) -> String {
-    let mut out = format!("{}\n\n", TEMPLATE.trim_end());
+    let mut out = format!("{}\n\n", template().trim_end());
     for folder in folders {
         out.push_str(&format!("{}|{}|{}\n", folder.name, folder.description, folder.path));
     }

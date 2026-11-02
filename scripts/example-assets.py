@@ -1,32 +1,66 @@
 """Arquivos das pastas de exemplo do manabox (embutidos no programa por src-tauri/src/examples.rs).
 
-Gera em src-tauri/assets/exemplo/: um cartaz PNG (o mesmo nas duas pastas, para o modo
+Gera em src-tauri/assets/examples/{pt,en}/: um cartaz PNG (o mesmo nas pastas, para o modo
 Duplicados ter o que mostrar), dois PDFs e dois TXT. Rodar de novo só se o conteúdo mudar.
 """
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-OUT = Path(__file__).resolve().parent.parent / "src-tauri" / "assets" / "exemplo"
+OUT = Path(__file__).resolve().parent.parent / "src-tauri" / "assets" / "examples"
 ICON = Path(__file__).resolve().parent.parent / "src-tauri" / "icons" / "128x128.png"
 
-CONVENCAO = [
-    "O manabox classifica os arquivos pelo nome.",
-    "",
-    "O nome é dividido em termos por hífen (-), sublinhado (_) ou espaço.",
-    "Cada termo é procurado no índice (Editar índice): news, insta, promo...",
-    "Sinônimos contam como o termo: newsletter = news, instagram = insta.",
-    "",
-    "Data de uso no nome: AAMMDD (241129 = 29/11/2024) ou AAMM (2412 = dez/2024).",
-    "Sem data no nome, vale a data de modificação do arquivo.",
-    "",
-    "Estes são arquivos de exemplo (.example antes da extensão).",
-    "Quando não precisar mais, apague a pasta manabox-exemplo e",
-    "remova as pastas de exemplo em Editar pastas.",
-]
+TEXTS = {
+    "pt": {
+        "convention": [
+            "O manabox classifica os arquivos pelo nome.",
+            "",
+            "O nome é dividido em termos por hífen (-), sublinhado (_) ou espaço.",
+            "Cada termo é procurado no índice (Editar índice): news, insta, promo...",
+            "Sinônimos contam como o termo: newsletter = news, instagram = insta.",
+            "",
+            "Data de uso no nome: AAMMDD (241129 = 29/11/2024) ou AAMM (2412 = dez/2024).",
+            "Sem data no nome, vale a data de modificação do arquivo.",
+            "",
+            "Estes são arquivos de exemplo (.example antes da extensão).",
+            "Quando não precisar mais, apague a pasta manabox-exemplo e",
+            "remova as pastas de exemplo em Editar pastas.",
+        ],
+        "poster": "black friday · exemplo",
+        "files": {
+            "lancamento-newsletter.pdf": "Newsletter de lançamento (exemplo)",
+            "lancamento-instagram.pdf": "Post de lançamento no Instagram (exemplo)",
+            "mala-direta.txt": "Mala direta da promoção de dezembro (exemplo)",
+            "email.txt": "E-mail de lançamento (exemplo)",
+        },
+    },
+    "en": {
+        "convention": [
+            "manabox classifies files by their names.",
+            "",
+            "The name is split into terms by hyphen (-), underscore (_) or space.",
+            "Each term is looked up in the index (Edit index): news, insta, promo...",
+            "Synonyms count as the term: newsletter = news, instagram = insta.",
+            "",
+            "Date of use in the name: YYMMDD (241129 = 2024-11-29) or YYMM (2412 = 2024-12).",
+            "Without a date in the name, the file's modification date is used.",
+            "",
+            "These are example files (.example before the extension).",
+            "When you no longer need them, delete the manabox-examples folder",
+            "and remove the example folders under Folders > Edit.",
+        ],
+        "poster": "black friday · example",
+        "files": {
+            "launch-newsletter.pdf": "Launch newsletter (example)",
+            "launch-instagram.pdf": "Instagram launch post (example)",
+            "direct-mail.txt": "December promotion direct mail (example)",
+            "email.txt": "Launch e-mail (example)",
+        },
+    },
+}
 
 
-def poster(path: Path):
+def poster(path: Path, subtitle: str):
     img = Image.new("RGB", (480, 270), "#2f6f62")
     draw = ImageDraw.Draw(img)
     icon = Image.open(ICON).convert("RGBA")
@@ -34,7 +68,7 @@ def poster(path: Path):
     big = ImageFont.load_default(size=40)
     small = ImageFont.load_default(size=20)
     draw.text((184, 92), "PROMO", font=big, fill="#f6d55c")
-    draw.text((184, 142), "black friday · exemplo", font=small, fill="#ffffff")
+    draw.text((184, 142), subtitle, font=small, fill="#ffffff")
     img.save(path, optimize=True)
 
 
@@ -67,10 +101,14 @@ def pdf(path: Path, title: str, lines: list[str]):
     path.write_bytes(bytes(out))
 
 
-OUT.mkdir(parents=True, exist_ok=True)
-poster(OUT / "cartaz.png")
-pdf(OUT / "lancamento-newsletter.pdf", "Newsletter de lançamento (exemplo)", CONVENCAO)
-pdf(OUT / "lancamento-instagram.pdf", "Post de lançamento no Instagram (exemplo)", CONVENCAO)
-(OUT / "mala-direta.txt").write_text("Mala direta da promoção de dezembro (exemplo)\n\n" + "\n".join(CONVENCAO) + "\n")
-(OUT / "email.txt").write_text("E-mail de lançamento (exemplo)\n\n" + "\n".join(CONVENCAO) + "\n")
-print("\n".join(f"{p.name}: {p.stat().st_size} bytes" for p in sorted(OUT.iterdir())))
+for lang, texts in TEXTS.items():
+    out = OUT / lang
+    out.mkdir(parents=True, exist_ok=True)
+    poster(out / "poster.png", texts["poster"])
+    for name, title in texts["files"].items():
+        if name.endswith(".pdf"):
+            pdf(out / name, title, texts["convention"])
+        else:
+            (out / name).write_text(title + "\n\n" + "\n".join(texts["convention"]) + "\n")
+for path in sorted(OUT.rglob("*.*")):
+    print(f"{path.relative_to(OUT)}: {path.stat().st_size} bytes")

@@ -1,30 +1,36 @@
 # manabox
 
-Gerenciamento de conteúdo (news, vídeos, stories etc.) para Ubuntu.
+Content management (news, videos, stories, etc.) for Ubuntu. · [Português](README.pt-BR.md)
 
-Lista os arquivos de pastas cadastradas e permite filtrá-los pelos termos e datas presentes nos nomes, conforme um índice editável dentro do programa. Também renomeia, recorta, cola e envia arquivos para a lixeira.
+manabox lists the files in registered folders and lets you filter them by the terms and dates in their names, according to an index you edit inside the program. It also renames, copies, cuts, pastes and moves files to the trash, finds duplicates, and exchanges files with any file manager (clipboard and drag and drop).
 
-## Instalar
+## Naming convention
 
-1. Gere o AppImage (precisa de Docker): `scripts/build-appimage.sh` — o arquivo fica em `release/`.
-2. Instale para o seu usuário: `scripts/install.sh` — copia o AppImage para `~/.local/bin` e cria a entrada no menu de aplicativos.
+- File names are split into terms by `-`, `_` or space: `news-promo-black-friday-241129.png`.
+- Terms are looked up in the index, organized in sections (e.g. Channels, Campaigns), with synonyms.
+- The date of use goes in the name as `YYMMDD` or `YYMM` (`241129` = 2024-11-29). Without a date in the name, the file's modification date is used.
 
-Para atualizar, gere e instale de novo. Para remover: `scripts/install.sh --uninstall` (a configuração em `~/.config/manabox` é mantida).
+## Install
 
-O AppImage roda em Ubuntu 22.04 ou mais novo e precisa do pacote `libfuse2`.
+1. Build the AppImage (requires Docker): `scripts/build-appimage.sh` — the file goes to `release/`.
+2. Install it for your user: `scripts/install.sh` — copies the AppImage to `~/.local/bin` and creates the application menu entry.
 
-Na primeira execução, o programa cria pastas de exemplo em `~/Documentos/manabox-exemplo` para mostrar como funciona (arquivos com `.example` no nome). Quando não precisar mais, apague a pasta e remova as pastas de exemplo em "Editar pastas". Para recriá-las: Configurações → "Criar pastas de exemplo".
+To update, build and install again. To remove: `scripts/install.sh --uninstall` (the configuration in `~/.config/manabox` is kept).
 
-## Desenvolvimento
+The AppImage runs on Ubuntu 22.04 or newer and needs the `libfuse2` package.
 
-- `pnpm tauri dev` — roda o app
-- `cd src-tauri && cargo test` — testes do núcleo
-- `pnpm build` — checagem de tipos e build da interface
+On the first run, manabox asks for the language (Portuguese or English) and creates example folders in your Documents folder (`manabox-examples`, or `manabox-exemplo` in Portuguese) to show how it works (files with `.example` in the name). When you no longer need them, delete the folder and remove the example folders under Folders › Edit. To recreate them: Settings → "Create example folders".
 
-Detalhes da especificação em [CLAUDE.md](CLAUDE.md).
+## Development
 
-## Autoria e licença
+- `pnpm tauri dev` — runs the app
+- `cd src-tauri && cargo test` — core tests
+- `pnpm build` — type checking and interface build
+
+Specification and code map (in Portuguese) in [CLAUDE.md](CLAUDE.md).
+
+## Author and license
 
 © 2026 Tiago Dias — tigo@webdeleve.net
 
-Software livre sob a [GNU General Public License v3.0 ou posterior](LICENSE): pode ser usado, alterado, distribuído e vendido; versões derivadas devem manter os créditos e a mesma licença.
+Free software under the [GNU General Public License v3.0 or later](LICENSE): it may be used, modified, distributed and sold; derived versions must keep the credits and the same license.

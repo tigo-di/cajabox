@@ -1,7 +1,8 @@
 import { confirm } from "@tauri-apps/plugin-dialog";
 
 import { button, el } from "./dom";
-import { NOT_SAVED, saveConfig } from "./save-config";
+import { t } from "./i18n";
+import { notSaved, saveConfig } from "./save-config";
 import type { Section, State, Term } from "./types";
 
 /** Abre o editor do índice (manabox.index.md); `onSaved` recebe o estado já gravado. */
@@ -10,12 +11,12 @@ export function openIndexEditor(sections: Section[], version: string, onSaved: (
   const error = el("p", { class: "editor-error" });
 
   function addTerm(terms: HTMLElement, term: Term) {
-    const name = el("input", { class: "term-name", placeholder: "termo", value: term.name, "aria-label": "Termo" });
+    const name = el("input", { class: "term-name", placeholder: t("index.termPlaceholder"), value: term.name, "aria-label": t("index.term") });
     const synonyms = el("input", {
       class: "term-synonyms",
-      placeholder: "sinônimos, separados por vírgula",
+      placeholder: t("index.synonymsPlaceholder"),
       value: term.synonyms.join(", "),
-      "aria-label": "Sinônimos",
+      "aria-label": t("index.synonyms"),
     });
     const row = el("div", { class: "editor-row term-row" }, name, synonyms);
     row.append(button("✕", () => row.remove(), "icon"));
@@ -24,20 +25,20 @@ export function openIndexEditor(sections: Section[], version: string, onSaved: (
   }
 
   function addSection(section: Section) {
-    const name = el("input", { class: "section-name", placeholder: "nome da seção", value: section.name, "aria-label": "Seção" });
+    const name = el("input", { class: "section-name", placeholder: t("index.sectionPlaceholder"), value: section.name, "aria-label": t("index.section") });
     const terms = el("div", { class: "index-terms" });
     const card = el("div", { class: "index-section" });
     async function remove() {
       const label = name.value.trim();
       const blank = !label && terms.querySelectorAll(".term-row").length === 0;
-      if (blank || (await confirm(`Remover a seção “${label || "sem nome"}” e todos os seus termos?`, { title: "Remover seção", kind: "warning" }))) {
+      if (blank || (await confirm(t("index.removeConfirm", { name: label || t("index.unnamed") }), { title: t("index.removeSection"), kind: "warning" }))) {
         card.remove();
       }
     }
     card.append(
-      el("div", { class: "editor-row section-row" }, name, button("Remover seção", remove)),
+      el("div", { class: "editor-row section-row" }, name, button(t("index.removeSection"), remove)),
       terms,
-      button("+ Termo", () => addTerm(terms, { name: "", synonyms: [] }).focus(), "link"),
+      button(t("index.addTerm"), () => addTerm(terms, { name: "", synonyms: [] }).focus(), "link"),
     );
     section.terms.forEach((term) => addTerm(terms, term));
     list.append(card);
@@ -68,7 +69,7 @@ export function openIndexEditor(sections: Section[], version: string, onSaved: (
     try {
       const state = await saveConfig("save_index", { index: { sections: collect() } }, version);
       if (!state) {
-        error.textContent = NOT_SAVED;
+        error.textContent = notSaved();
         return;
       }
       dialog.close();
@@ -82,16 +83,16 @@ export function openIndexEditor(sections: Section[], version: string, onSaved: (
   const dialog = el(
     "dialog",
     { class: "editor" },
-    el("h2", {}, "Índice"),
+    el("h2", {}, t("index.title")),
     el(
       "p",
       { class: "hint" },
-      "Termos procurados nos nomes dos arquivos, agrupados em seções. Um sinônimo classifica o arquivo no termo da linha.",
+      t("index.hint"),
     ),
     list,
-    button("+ Adicionar seção", () => addSection({ name: "", terms: [] }).focus(), "link"),
+    button(t("index.addSection"), () => addSection({ name: "", terms: [] }).focus(), "link"),
     error,
-    el("div", { class: "editor-actions" }, button("Cancelar", () => dialog.close()), button("Salvar", save, "primary")),
+    el("div", { class: "editor-actions" }, button(t("common.cancel"), () => dialog.close()), button(t("common.save"), save, "primary")),
   );
   dialog.addEventListener("close", () => dialog.remove());
   document.body.append(dialog);

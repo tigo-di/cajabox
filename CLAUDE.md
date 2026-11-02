@@ -8,6 +8,8 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 - Sistema operacional: Ubuntu; distribuído como AppImage
 - Ícone: `python3 scripts/icon.py` (baú em pixel art; ver instruções no script)
 - Versão: `package.json` (lida pelo tauri.conf.json); `src-tauri/Cargo.toml` acompanha
+- Idiomas: português e inglês, escolhidos na primeira execução (idioma do sistema pré-selecionado) ou em Configurações; gravado em `~/.config/manabox/config` (`language=`). **Todo texto novo vai nos dois idiomas**: interface em `src/i18n.ts` (`t()`), núcleo com `tr!("pt", "en")`, modelos `index-sample(.en).md`/`paths-sample(.en).md`, exemplos em `src-tauri/assets/examples/{pt,en}`. Datas: pt `29/11/2024`, en ISO `2024-11-29`
+- README.md em inglês, README.pt-BR.md em português (manter os dois)
 - Licença: GPL-3.0-or-later (LICENSE); autor Tiago Dias <tigo@webdeleve.net>
 - Desenvolvimento no host (Rust + libs do Tauri instalados localmente)
 - Build do AppImage dentro de container Docker com Ubuntu 22.04 (glibc antiga = AppImage compatível com mais sistemas)
@@ -30,6 +32,7 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 - `examples.rs` — pastas de exemplo (primeira execução e Configurações)
 - `fileops.rs` — renomear e mover arquivos
 - `watch.rs` — observa a pasta aberta e avisa a interface
+- `i18n.rs` — idioma atual e macro `tr!`
 - `lib.rs` — comandos Tauri expostos à interface
 
 ## Interface (src)
@@ -39,6 +42,7 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 - `folders-editor.ts` / `index-editor.ts` / `settings.ts` — diálogos de edição e configurações
 - `save-config.ts` — salvar pelos editores com aviso se o arquivo mudou fora do programa
 - `about.ts` — diálogo "Sobre" (créditos, versão, licença)
+- `i18n.ts` — textos pt/en, `t()`, formato de datas e nomes dos meses
 - `dom.ts` — helpers de DOM (textos sempre via textContent)
 - `types.ts` — tipos espelhando as structs do Rust
 
