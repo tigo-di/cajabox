@@ -102,12 +102,6 @@ export function openSettings(state: State, onMoved: (state: State) => void) {
     { class: "editor settings" },
     el("h2", {}, t("settings.title")),
     el("p", { class: "hint" }, t("settings.hint")),
-    el(
-      "div",
-      { class: "settings-file" },
-      el("div", {}, el("div", { class: "settings-label" }, t("language.title")), el("div", { class: "hint" }, t("language.hint"))),
-      el("div", { class: "settings-actions" }, languageSelect),
-    ),
     rows,
     el(
       "div",
@@ -119,6 +113,12 @@ export function openSettings(state: State, onMoved: (state: State) => void) {
         el("div", { class: "hint" }, t("settings.examplesHint")),
       ),
       el("div", { class: "settings-actions" }, button(t("settings.createExamples"), createExamples)),
+    ),
+    el(
+      "div",
+      { class: "settings-file" },
+      el("div", {}, el("div", { class: "settings-label" }, t("language.title")), el("div", { class: "hint" }, t("language.hint"))),
+      el("div", { class: "settings-actions" }, languageSelect),
     ),
     error,
     el("div", { class: "editor-actions" }, button(t("common.close"), () => dialog.close(), "primary")),
