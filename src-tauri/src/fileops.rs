@@ -14,11 +14,18 @@ pub enum Outcome {
 pub fn move_path(from: &Path, to: &Path) -> io::Result<()> {
     match fs::rename(from, to) {
         Err(e) if e.kind() == io::ErrorKind::CrossesDevices => {
-            fs::copy(from, to)?;
+            copy_file(from, to)?;
             fs::remove_file(from)
         }
         result => result,
     }
+}
+
+/// Copia mantendo a data de modificação (usada como data do arquivo quando não há data no nome).
+fn copy_file(from: &Path, to: &Path) -> io::Result<()> {
+    fs::copy(from, to)?;
+    let modified = fs::metadata(from)?.modified()?;
+    fs::File::options().write(true).open(to)?.set_modified(modified)
 }
 
 /// Renomeia um arquivo na mesma pasta. O nome novo não pode existir, conter `/` nem começar com `.`
@@ -72,7 +79,7 @@ pub fn copy_to(path: &Path, dest_dir: &Path, overwrite: bool) -> io::Result<Outc
     temp_name.push(name);
     temp_name.push(".manabox-tmp");
     let temp = dest_dir.join(temp_name);
-    if let Err(e) = fs::copy(path, &temp).and_then(|_| fs::rename(&temp, &to)) {
+    if let Err(e) = copy_file(path, &temp).and_then(|_| fs::rename(&temp, &to)) {
         let _ = fs::remove_file(&temp);
         return Err(e);
     }
@@ -149,6 +156,19 @@ mod tests {
         assert_eq!(copy_to(&a, &dest, true).unwrap(), Outcome::Done(dest.join("a b ção.txt")));
         assert_eq!(fs::read_to_string(dest.join("a b ção.txt")).unwrap(), "novo");
         assert_eq!(fs::read_dir(&dest).unwrap().count(), 1, "temporário removido");
+    }
+
+    #[test]
+    fn copy_keeps_modification_date() {
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("dest");
+        fs::create_dir(&dest).unwrap();
+        let a = dir.path().join("antigo.png");
+        fs::write(&a, "x").unwrap();
+        let old = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000);
+        fs::File::options().write(true).open(&a).unwrap().set_modified(old).unwrap();
+        copy_to(&a, &dest, false).unwrap();
+        assert_eq!(fs::metadata(dest.join("antigo.png")).unwrap().modified().unwrap(), old);
     }
 
     #[test]

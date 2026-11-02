@@ -14,6 +14,8 @@ pub struct FileEntry {
     pub path: String,
     /// Tamanho em bytes.
     pub size: u64,
+    /// Data de modificação (milissegundos desde 1970); a interface a usa quando não há data no nome.
+    pub modified: u64,
     #[serde(flatten)]
     pub classification: Classification,
 }
@@ -46,6 +48,11 @@ fn walk(root: &Path, dir: &Path, classifier: &Classifier, files: &mut Vec<FileEn
         {
             files.push(FileEntry {
                 size: meta.len(),
+                modified: meta
+                    .modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map_or(0, |d| d.as_millis() as u64),
                 classification: classifier.classify(&name),
                 relative_path: path.strip_prefix(root).unwrap_or(&path).to_string_lossy().into_owned(),
                 path: path.to_string_lossy().into_owned(),
