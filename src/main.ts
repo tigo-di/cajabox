@@ -13,7 +13,7 @@ import { openSettings } from "./settings";
 import { readSort, saveSort, sortFiles, toggleSort, type SortKey } from "./sort";
 import type { FileEntry, Folder, State } from "./types";
 
-const LAST_FOLDER_KEY = "manabox.lastFolder";
+const LAST_FOLDER_KEY = "cajabox.lastFolder";
 
 let state: State | null = null;
 let current: Folder | null = null;
@@ -27,7 +27,7 @@ let selected = new Set<string>();
 let anchor: string | null = null;
 type ClipboardFiles = { mode: "copy" | "cut"; paths: string[]; skipped: string[] };
 const EMPTY_CLIPBOARD: ClipboardFiles = { mode: "copy", paths: [], skipped: [] };
-/** Espelho da área de transferência do sistema (arquivos copiados/recortados no manabox ou num gerenciador). */
+/** Espelho da área de transferência do sistema (arquivos copiados/recortados no cajabox ou num gerenciador). */
 let clipboard = EMPTY_CLIPBOARD;
 
 let sort = readSort();
@@ -39,7 +39,7 @@ let duplicates: { mode: DuplicateMode; groups: string[][] | null; progress: [num
 /** Identifica a busca mais recente; resultados de buscas anteriores são descartados. */
 let duplicatesRun = 0;
 
-const COLLAPSED_KEY = "manabox.collapsed";
+const COLLAPSED_KEY = "cajabox.collapsed";
 /** Grupos de filtro recolhidos: `date` ou `section:<nome>`; lembrados entre execuções. */
 let collapsed = readCollapsed();
 
@@ -893,7 +893,7 @@ async function init() {
   window.addEventListener("focus", refreshClipboard); // o usuário pode ter copiado no gerenciador de arquivos
   await getCurrentWebview().onDragDropEvent((event) => {
     const { type } = event.payload;
-    if (draggingOut) return setDropHighlight(false); // arrasto saindo do próprio manabox
+    if (draggingOut) return setDropHighlight(false); // arrasto saindo do próprio cajabox
     setDropHighlight(type === "enter" || type === "over");
     if (type === "drop") dropFiles(event.payload.paths);
   });

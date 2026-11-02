@@ -18,7 +18,7 @@ export interface Folder {
 
 export interface State {
   config: { index: string; paths: string; language: "pt" | "en" | null };
-  /** Pasta padrão de manabox.index.md e manabox.paths.md. */
+  /** Pasta padrão de cajabox.index.md e cajabox.paths.md. */
   default_dir: string;
   index: { sections: Section[] };
   folders: Folder[];

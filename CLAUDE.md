@@ -1,14 +1,14 @@
 Gerenciamento de conteúdo (news, videos, instagram stories, etc).
 
 # Objetivo
-Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com classificações baseadas em termos dos nomes de arquivos (manabox.index.md).
+Listar e permitir filtrar arquivos de pastas (cajabox.paths.md) de acordo com classificações baseadas em termos dos nomes de arquivos (cajabox.index.md).
 
 # Tecnologia
 - Tauri (backend Rust, interface HTML/JS)
 - Sistema operacional: Ubuntu; distribuído como AppImage
 - Ícone: `python3 scripts/icon.py` (baú em pixel art; ver instruções no script)
 - Versão: `package.json` (lida pelo tauri.conf.json); `src-tauri/Cargo.toml` acompanha
-- Idiomas: português e inglês, escolhidos na primeira execução (idioma do sistema pré-selecionado) ou em Configurações; gravado em `~/.config/manabox/config` (`language=`). **Todo texto novo vai nos dois idiomas**: interface em `src/i18n.ts` (`t()`), núcleo com `tr!("pt", "en")`, modelos `index-sample(.en).md`/`paths-sample(.en).md`, exemplos em `src-tauri/assets/examples/{pt,en}`. Datas: pt `29/11/2024`, en ISO `2024-11-29`
+- Idiomas: português e inglês, escolhidos na primeira execução (idioma do sistema pré-selecionado) ou em Configurações; gravado em `~/.config/cajabox/config` (`language=`). **Todo texto novo vai nos dois idiomas**: interface em `src/i18n.ts` (`t()`), núcleo com `tr!("pt", "en")`, modelos `index-sample(.en).md`/`paths-sample(.en).md`, exemplos em `src-tauri/assets/examples/{pt,en}`. Datas: pt `29/11/2024`, en ISO `2024-11-29`
 - README.md em inglês, README.pt-BR.md em português (manter os dois)
 - Licença: GPL-3.0-or-later (LICENSE); autor Tiago Dias <tigo@webdeleve.net>
 - Desenvolvimento no host (Rust + libs do Tauri instalados localmente)
@@ -23,10 +23,10 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 - Node 22.12.0 fixado no projeto via asdf (`.tool-versions`); Vite 8 exige Node ≥ 20.19
 
 ## Código (src-tauri/src)
-- `index.rs` / `paths.rs` — leitura, validação e gravação de manabox.index.md / manabox.paths.md
+- `index.rs` / `paths.rs` — leitura, validação e gravação de cajabox.index.md / cajabox.paths.md
 - `classify.rs` — termos e datas a partir do nome do arquivo
 - `scan.rs` — listagem recursiva de uma pasta
-- `config.rs` — localização de manabox.index.md e manabox.paths.md (mover, local padrão)
+- `config.rs` — localização de cajabox.index.md e cajabox.paths.md (mover, local padrão)
 - `clipboard.rs` — arquivos na área de transferência do sistema (GTK)
 - `launch.rs` — abrir arquivo/pasta com o programa padrão (GIO, traz a janela para a frente)
 - `examples.rs` — pastas de exemplo (primeira execução e Configurações)
@@ -49,23 +49,24 @@ Listar e permitir filtrar arquivos de pastas (manabox.paths.md) de acordo com cl
 # Arquivos de configuração
 Arquivos de exemplo: index-sample.md, paths-sample.md
 
-O programa gera manabox.index.md e manabox.paths.md (usando os samples como modelo) se não existirem.
-- Local padrão: `~/.config/manabox/`
-- `~/.config/manabox/config` guarda a localização atual de manabox.index.md e manabox.paths.md
+O programa gera cajabox.index.md e cajabox.paths.md (usando os samples como modelo) se não existirem.
+- Local padrão: `~/.config/cajabox/`
+- Nome anterior do programa: manabox. Na abertura, `~/.config/manabox` é movida para `~/.config/cajabox` e `manabox.*.md` renomeados para `cajabox.*.md` (config.rs `migrate_old_name`); `scripts/install.sh` remove a instalação antiga
+- `~/.config/cajabox/config` guarda a localização atual de cajabox.index.md e cajabox.paths.md
 - O programa mostra onde eles estão salvos e permite movê-los
 - São editados dentro do programa; o usuário não precisa abrir os arquivos
-- Primeira execução (sem índice nem pastas): cria ~/Documentos/manabox-exemplo/{Prontos,Publicados} com arquivos `.example` e os termos no índice (examples.rs; arquivos em src-tauri/assets/exemplo, gerados por scripts/example-assets.py); "Criar pastas de exemplo" em Configurações faz o mesmo; nunca sobrescreve
+- Primeira execução (sem índice nem pastas): cria ~/Documentos/cajabox-exemplo/{Prontos,Publicados} com arquivos `.example` e os termos no índice (examples.rs; arquivos em src-tauri/assets/exemplo, gerados por scripts/example-assets.py); "Criar pastas de exemplo" em Configurações faz o mesmo; nunca sobrescreve
 - Editados fora do programa (com ele aberto): recarregados sozinhos; pasta aberta e filtros marcados (pelo nome) mantidos; salvar pelo editor interno depois disso pergunta antes de substituir
 - Blocos `<!-- -->` são comentários e ignorados na leitura
 
-## manabox.paths.md
+## cajabox.paths.md
 Uma pasta por linha: `nome|descrição|caminho absoluto`
 - Cada listagem mostra uma pasta por vez: nome, descrição e arquivos
 - Leitura recursiva (inclui subpastas)
 - Arquivos e pastas ocultos (iniciados por `.`) não são mostrados
 - Caminho inexistente: mostrar aviso de que não foi possível encontrar o caminho
 
-## manabox.index.md
+## cajabox.index.md
 - `# Nome` inicia uma seção; linhas seguintes são termos da seção
 - Espaços, tabs e linhas vazias são ignorados (só servem para legibilidade)
 - Termo seguido de linhas `- sinônimo` forma um grupo: qualquer sinônimo classifica o arquivo no termo pai. O pai é sinônimo de si mesmo (não precisa ser repetido como filho).

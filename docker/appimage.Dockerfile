@@ -1,4 +1,4 @@
-# Build do AppImage do manabox em Ubuntu 22.04 (glibc 2.35): o AppImage roda em 22.04 ou mais novo.
+# Build do AppImage do cajabox em Ubuntu 22.04 (glibc 2.35): o AppImage roda em 22.04 ou mais novo.
 # Usado por scripts/build-appimage.sh; o projeto é montado em /app, não copiado para a imagem.
 FROM ubuntu:22.04
 

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::markdown::strip_comments;
 
-/// Conteúdo inicial do manabox.paths.md; o comentário de ajuda é mantido ao gravar.
+/// Conteúdo inicial do cajabox.paths.md; o comentário de ajuda é mantido ao gravar.
 pub const TEMPLATE: &str = include_str!("../../paths-sample.md");
 const TEMPLATE_EN: &str = include_str!("../../paths-sample.en.md");
 
@@ -24,7 +24,7 @@ pub struct Folder {
     pub path: String,
 }
 
-/// Lê o conteúdo de um manabox.paths.md: uma pasta por linha, `nome|descrição|caminho`.
+/// Lê o conteúdo de um cajabox.paths.md: uma pasta por linha, `nome|descrição|caminho`.
 /// Linhas sem os três campos são ignoradas.
 pub fn parse(text: &str) -> Vec<Folder> {
     strip_comments(text)
@@ -70,7 +70,7 @@ pub fn validate(folders: &[Folder]) -> Result<(), String> {
     Ok(())
 }
 
-/// Gera o manabox.paths.md: comentário de ajuda seguido de uma pasta por linha.
+/// Gera o cajabox.paths.md: comentário de ajuda seguido de uma pasta por linha.
 pub fn serialize(folders: &[Folder]) -> String {
     let mut out = format!("{}\n\n", template().trim_end());
     for folder in folders {

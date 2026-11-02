@@ -20,7 +20,7 @@ export async function openAbout() {
   const dialog = el(
     "dialog",
     { class: "editor about" },
-    el("h2", {}, "manabox"),
+    el("h2", {}, "cajabox"),
     el("p", { class: "about-version" }, t("about.version", { version })),
     el("p", {}, t("about.description")),
     el("p", {}, `© 2026 ${AUTHOR} — `, externalLink(EMAIL, `mailto:${EMAIL}`)),

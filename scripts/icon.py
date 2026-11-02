@@ -1,4 +1,4 @@
-"""Ícone do manabox: baú em pixel art (16×16) com musgo e fecho dourado.
+"""Ícone do cajabox: baú em pixel art (16×16) com musgo e fecho dourado.
 
 Gera src-tauri/icons/icon.svg (fonte) e os PNGs com pixels nítidos (ampliação sem suavizar).
 icon.ico e icon.icns vêm de `pnpm tauri icon src-tauri/icons/icon.png`; rode este script

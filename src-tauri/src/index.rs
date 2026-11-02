@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::markdown::strip_comments;
 
-/// Conteúdo inicial do manabox.index.md; o comentário de ajuda é mantido ao gravar.
+/// Conteúdo inicial do cajabox.index.md; o comentário de ajuda é mantido ao gravar.
 pub const TEMPLATE: &str = include_str!("../../index-sample.md");
 const TEMPLATE_EN: &str = include_str!("../../index-sample.en.md");
 
@@ -23,7 +23,7 @@ pub struct Term {
     /// Não vem da interface: é recalculado ao reler o arquivo gravado.
     #[serde(skip)]
     pub patterns: Vec<Vec<String>>,
-    /// Sinônimos como escritos no manabox.index.md (sem o nome do termo).
+    /// Sinônimos como escritos no cajabox.index.md (sem o nome do termo).
     pub synonyms: Vec<String>,
 }
 
@@ -64,7 +64,7 @@ impl Term {
     }
 }
 
-/// Lê o conteúdo de um manabox.index.md.
+/// Lê o conteúdo de um cajabox.index.md.
 ///
 /// `# Nome` inicia seção, linha comum é termo, `- x` é sinônimo do termo anterior.
 /// Linhas antes da primeira seção e sinônimos sem termo são ignorados.
@@ -140,7 +140,7 @@ pub fn validate(index: &Index) -> Result<(), String> {
     Ok(())
 }
 
-/// Gera o manabox.index.md: comentário de ajuda seguido das seções, termos e sinônimos indentados.
+/// Gera o cajabox.index.md: comentário de ajuda seguido das seções, termos e sinônimos indentados.
 pub fn serialize(index: &Index) -> String {
     let mut out = format!("{}\n", template().trim_end());
     for section in &index.sections {

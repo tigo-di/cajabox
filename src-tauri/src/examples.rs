@@ -1,4 +1,4 @@
-//! Pastas de exemplo (~/Documentos/manabox-exemplo): mostram o programa funcionando na primeira
+//! Pastas de exemplo (~/Documentos/cajabox-exemplo): mostram o programa funcionando na primeira
 //! execução, ou a pedido em Configurações. Nunca sobrescrevem arquivos; na configuração entra só o
 //! que falta. Os arquivos vêm de src-tauri/assets/examples/{pt,en} (gerados por scripts/example-assets.py).
 
@@ -17,8 +17,8 @@ pub fn base_dir(lang: Lang) -> PathBuf {
         .or_else(|| dirs::home_dir().map(|home| home.join("Documents")))
         .unwrap_or_default();
     documents.join(match lang {
-        Lang::Pt => "manabox-exemplo",
-        Lang::En => "manabox-examples",
+        Lang::Pt => "cajabox-exemplo",
+        Lang::En => "cajabox-examples",
     })
 }
 

@@ -1,4 +1,4 @@
-"""Arquivos das pastas de exemplo do manabox (embutidos no programa por src-tauri/src/examples.rs).
+"""Arquivos das pastas de exemplo do cajabox (embutidos no programa por src-tauri/src/examples.rs).
 
 Gera em src-tauri/assets/examples/{pt,en}/: um cartaz PNG (o mesmo nas pastas, para o modo
 Duplicados ter o que mostrar), dois PDFs e dois TXT. Rodar de novo só se o conteúdo mudar.
@@ -13,7 +13,7 @@ ICON = Path(__file__).resolve().parent.parent / "src-tauri" / "icons" / "128x128
 TEXTS = {
     "pt": {
         "convention": [
-            "O manabox classifica os arquivos pelo nome.",
+            "O cajabox classifica os arquivos pelo nome.",
             "",
             "O nome é dividido em termos por hífen (-), sublinhado (_) ou espaço.",
             "Cada termo é procurado no índice (Editar índice): news, insta, promo...",
@@ -23,7 +23,7 @@ TEXTS = {
             "Sem data no nome, vale a data de modificação do arquivo.",
             "",
             "Estes são arquivos de exemplo (.example antes da extensão).",
-            "Quando não precisar mais, apague a pasta manabox-exemplo e",
+            "Quando não precisar mais, apague a pasta cajabox-exemplo e",
             "remova as pastas de exemplo em Editar pastas.",
         ],
         "poster": "black friday · exemplo",
@@ -36,7 +36,7 @@ TEXTS = {
     },
     "en": {
         "convention": [
-            "manabox classifies files by their names.",
+            "cajabox classifies files by their names.",
             "",
             "The name is split into terms by hyphen (-), underscore (_) or space.",
             "Each term is looked up in the index (Edit index): news, insta, promo...",
@@ -46,7 +46,7 @@ TEXTS = {
             "Without a date in the name, the file's modification date is used.",
             "",
             "These are example files (.example before the extension).",
-            "When you no longer need them, delete the manabox-examples folder",
+            "When you no longer need them, delete the cajabox-examples folder",
             "and remove the example folders under Folders > Edit.",
         ],
         "poster": "black friday · example",

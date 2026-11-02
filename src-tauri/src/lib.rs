@@ -29,7 +29,7 @@ use scan::FileEntry;
 #[derive(Serialize)]
 struct State {
     config: Config,
-    /// Pasta padrão de manabox.index.md e manabox.paths.md (`~/.config/manabox`).
+    /// Pasta padrão de cajabox.index.md e cajabox.paths.md (`~/.config/cajabox`).
     default_dir: String,
     index: index::Index,
     folders: Vec<paths::Folder>,
@@ -101,7 +101,7 @@ fn read_state(first_run: bool) -> Result<State, String> {
     Ok(State { config, default_dir, index, folders, versions, example_dir, example_dirs, first_run })
 }
 
-/// Grava a lista de pastas no manabox.paths.md e devolve o estado atualizado. Se o arquivo mudou
+/// Grava a lista de pastas no cajabox.paths.md e devolve o estado atualizado. Se o arquivo mudou
 /// fora do programa desde `expected`, sem `overwrite` devolve `changed` sem gravar.
 #[tauri::command]
 fn save_folders(folders: Vec<paths::Folder>, expected: String, overwrite: bool) -> Result<SaveResult, String> {
@@ -110,7 +110,7 @@ fn save_folders(folders: Vec<paths::Folder>, expected: String, overwrite: bool) 
     save_checked(&config.paths, paths::serialize(&folders), &expected, overwrite)
 }
 
-/// Grava o índice no manabox.index.md (padrões recalculados na releitura); conflito como em `save_folders`.
+/// Grava o índice no cajabox.index.md (padrões recalculados na releitura); conflito como em `save_folders`.
 #[tauri::command]
 fn save_index(index: index::Index, expected: String, overwrite: bool) -> Result<SaveResult, String> {
     index::validate(&index)?;
@@ -125,7 +125,7 @@ enum MoveResult {
     Exists { path: String },
 }
 
-/// Passa a observar manabox.index.md e manabox.paths.md (nos locais atuais); mudança feita fora
+/// Passa a observar cajabox.index.md e cajabox.paths.md (nos locais atuais); mudança feita fora
 /// do programa emite `config-changed`.
 fn watch_config(app: &AppHandle) -> Result<(), String> {
     let config = Config::load(&config::default_dir()).map_err(|e| e.to_string())?;
@@ -135,7 +135,7 @@ fn watch_config(app: &AppHandle) -> Result<(), String> {
     })
 }
 
-/// Move manabox.index.md ou manabox.paths.md para outra pasta. Sem `overwrite`, conflito volta como `exists`.
+/// Move cajabox.index.md ou cajabox.paths.md para outra pasta. Sem `overwrite`, conflito volta como `exists`.
 #[tauri::command]
 fn move_config_file(file: config::ConfigFile, dest_dir: String, overwrite: bool, app: AppHandle) -> Result<MoveResult, String> {
     let dir = config::default_dir();
@@ -207,7 +207,7 @@ fn watch_folder(path: String, app: AppHandle, watcher: tauri::State<'_, watch::F
 struct FileList {
     /// Arquivos existentes.
     paths: Vec<String>,
-    /// Pastas e caminhos inexistentes (o manabox opera só arquivos).
+    /// Pastas e caminhos inexistentes (o cajabox opera só arquivos).
     skipped: Vec<String>,
 }
 
@@ -239,7 +239,7 @@ fn clipboard_set(paths: Vec<String>, mode: clipboard::Mode) -> Result<(), String
     clipboard::system::set(clipboard::Contents { mode, paths: paths.into_iter().map(Into::into).collect() })
 }
 
-/// Arquivos na área de transferência do sistema, vindos do manabox ou de um gerenciador de arquivos.
+/// Arquivos na área de transferência do sistema, vindos do cajabox ou de um gerenciador de arquivos.
 #[tauri::command]
 fn clipboard_get() -> Option<ClipboardFiles> {
     let contents = clipboard::system::get()?;
@@ -359,6 +359,11 @@ fn list_folder(path: String) -> Result<Vec<FileEntry>, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if let Some(root) = dirs::config_dir()
+        && let Err(error) = config::migrate_old_name(&root)
+    {
+        eprintln!("{error}"); // segue com a configuração nova (vazia); a antiga fica em ~/.config/manabox
+    }
     launch::prefer_host_data();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
