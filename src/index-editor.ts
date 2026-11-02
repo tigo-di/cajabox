@@ -5,9 +5,32 @@ import { t } from "./i18n";
 import { notSaved, saveConfig } from "./save-config";
 import type { Section, State, Term } from "./types";
 
+const COLLAPSED_KEY = "manabox.indexEditorCollapsed";
+
+/** Seções recolhidas no editor (pelo nome), lembradas entre aberturas. */
+function readCollapsed(): Set<string> {
+  try {
+    const saved = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "[]");
+    return new Set(Array.isArray(saved) ? saved.filter((k) => typeof k === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveCollapsed(names: string[]) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify(names));
+  } catch {
+    // sem localStorage o editor só não lembra as seções recolhidas
+  }
+}
+
 /** Abre o editor do índice (manabox.index.md); `onSaved` recebe o estado já gravado. */
 export function openIndexEditor(sections: Section[], version: string, onSaved: (state: State) => void) {
   const list = el("div", { class: "index-sections" });
+  const collapsed = readCollapsed();
+  /** Função que recolhe/expande cada seção. */
+  const togglers = new Map<HTMLElement, (value: boolean) => void>();
   const error = el("p", { class: "editor-error" });
 
   function addTerm(terms: HTMLElement, term: Term) {
@@ -28,6 +51,17 @@ export function openIndexEditor(sections: Section[], version: string, onSaved: (
     const name = el("input", { class: "section-name", placeholder: t("index.sectionPlaceholder"), value: section.name, "aria-label": t("index.section") });
     const terms = el("div", { class: "index-terms" });
     const card = el("div", { class: "index-section" });
+    const count = el("span", { class: "term-count" });
+    const toggle = el("button", { type: "button", class: "section-toggle" });
+    function setCollapsed(value: boolean) {
+      card.classList.toggle("collapsed", value);
+      toggle.textContent = value ? "▸" : "▾";
+      toggle.setAttribute("aria-expanded", String(!value));
+      const n = terms.querySelectorAll(".term-row").length;
+      count.textContent = value ? t(n === 1 ? "index.termCountOne" : "index.termCountMany", { n }) : "";
+    }
+    toggle.addEventListener("click", () => setCollapsed(!card.classList.contains("collapsed")));
+    togglers.set(card, setCollapsed);
     async function remove() {
       const label = name.value.trim();
       const blank = !label && terms.querySelectorAll(".term-row").length === 0;
@@ -36,11 +70,12 @@ export function openIndexEditor(sections: Section[], version: string, onSaved: (
       }
     }
     card.append(
-      el("div", { class: "editor-row section-row" }, name, button(t("index.removeSection"), remove)),
+      el("div", { class: "editor-row section-row" }, toggle, name, count, button(t("index.removeSection"), remove)),
       terms,
       button(t("index.addTerm"), () => addTerm(terms, { name: "", synonyms: [] }).focus(), "link"),
     );
     section.terms.forEach((term) => addTerm(terms, term));
+    setCollapsed(section.name !== "" && collapsed.has(section.name)); // seção nova abre
     list.append(card);
     return name;
   }
@@ -79,6 +114,11 @@ export function openIndexEditor(sections: Section[], version: string, onSaved: (
     }
   }
 
+  /** Recolhe ou expande todas as seções. */
+  function setAll(value: boolean) {
+    for (const card of list.querySelectorAll<HTMLElement>(".index-section")) togglers.get(card)?.(value);
+  }
+
   sections.forEach(addSection);
   const dialog = el(
     "dialog",
@@ -89,12 +129,26 @@ export function openIndexEditor(sections: Section[], version: string, onSaved: (
       { class: "hint" },
       t("index.hint"),
     ),
+    el(
+      "div",
+      { class: "index-toolbar" },
+      button(t("index.collapseAll"), () => setAll(true), "link"),
+      button(t("index.expandAll"), () => setAll(false), "link"),
+    ),
     list,
     button(t("index.addSection"), () => addSection({ name: "", terms: [] }).focus(), "link"),
     error,
     el("div", { class: "editor-actions" }, button(t("common.cancel"), () => dialog.close()), button(t("common.save"), save, "primary")),
   );
-  dialog.addEventListener("close", () => dialog.remove());
+  dialog.addEventListener("close", () => {
+    // lembra as seções recolhidas pelo nome que têm ao fechar (salvando ou não)
+    saveCollapsed(
+      [...list.querySelectorAll<HTMLElement>(".index-section.collapsed")]
+        .map((card) => card.querySelector<HTMLInputElement>(".section-name")!.value.trim())
+        .filter(Boolean),
+    );
+    dialog.remove();
+  });
   document.body.append(dialog);
   dialog.showModal();
 }
