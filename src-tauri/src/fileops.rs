@@ -53,6 +53,24 @@ fn file_name(path: &Path) -> io::Result<&std::ffi::OsStr> {
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, crate::tr!("caminho sem nome de arquivo", "path without a file name")))
 }
 
+/// Cria `relative` (pode ter subpastas: `2025/janeiro`) dentro de `root`. Cada parte não pode ser
+/// vazia, `.`/`..`, começar com `.` (ficaria oculta) nem ter espaços nas pontas; a pasta não pode existir.
+pub fn create_folder(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    let parts: Vec<&str> = relative.trim().trim_matches('/').split('/').filter(|p| !p.is_empty()).collect();
+    if parts.is_empty() || parts.iter().any(|p| p.starts_with('.') || p.trim() != *p) {
+        return Err(crate::tr!(
+            "Nome de pasta inválido: não pode ser vazio, começar com . nem ter espaços nas pontas",
+            "Invalid folder name: it cannot be empty, start with . or have leading or trailing spaces"
+        ));
+    }
+    let path = parts.iter().fold(root.to_path_buf(), |path, part| path.join(part));
+    if path.exists() {
+        return Err(crate::tr!("Já existe: {}", "Already exists: {}", parts.join("/")));
+    }
+    fs::create_dir_all(&path).map_err(|e| crate::tr!("Erro ao criar a pasta: {e}", "Error creating the folder: {e}"))?;
+    Ok(path)
+}
+
 /// Move um arquivo para `dest_dir`, mantendo o nome. Sem `overwrite`, conflito volta como `Exists`.
 pub fn move_to(path: &Path, dest_dir: &Path, overwrite: bool) -> io::Result<Outcome> {
     let to = dest_dir.join(file_name(path)?);
@@ -162,6 +180,17 @@ mod tests {
         assert_eq!(copy_to(&a, &dest, true).unwrap(), Outcome::Done(dest.join("a b ção.txt")));
         assert_eq!(fs::read_to_string(dest.join("a b ção.txt")).unwrap(), "novo");
         assert_eq!(fs::read_dir(&dest).unwrap().count(), 1, "temporário removido");
+    }
+
+    #[test]
+    fn create_folder_accepts_paths_and_rejects_invalid_names() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(create_folder(dir.path(), "2025/janeiro").unwrap(), dir.path().join("2025/janeiro"));
+        assert!(dir.path().join("2025/janeiro").is_dir());
+        assert_eq!(create_folder(dir.path(), "/nova/").unwrap(), dir.path().join("nova"));
+        for name in ["", "  ", ".oculta", "a/../b", "a/./b", "a /b", "2025/janeiro"] {
+            assert!(create_folder(dir.path(), name).is_err(), "{name:?}");
+        }
     }
 
     #[test]

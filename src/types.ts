@@ -38,6 +38,14 @@ export interface FileDate {
   day: number | null;
 }
 
+/** Subpasta da pasta listada (também as vazias). */
+export interface FolderEntry {
+  name: string;
+  /** Relativo à pasta listada. */
+  relative_path: string;
+  path: string;
+}
+
 export interface FileEntry {
   name: string;
   /** Relativo à pasta listada, incluindo o nome. */

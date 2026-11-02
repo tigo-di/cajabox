@@ -25,12 +25,12 @@ Listar e permitir filtrar arquivos de pastas (cajabox.paths.md) de acordo com cl
 ## Código (src-tauri/src)
 - `index.rs` / `paths.rs` — leitura, validação e gravação de cajabox.index.md / cajabox.paths.md
 - `classify.rs` — termos e datas a partir do nome do arquivo
-- `scan.rs` — listagem recursiva de uma pasta
+- `scan.rs` — listagem recursiva de uma pasta (arquivos e subpastas)
 - `config.rs` — localização de cajabox.index.md e cajabox.paths.md (mover, local padrão)
 - `clipboard.rs` — arquivos na área de transferência do sistema (GTK)
 - `launch.rs` — abrir arquivo/pasta com o programa padrão (GIO, traz a janela para a frente)
 - `examples.rs` — pastas de exemplo (primeira execução e Configurações)
-- `fileops.rs` — renomear e mover arquivos
+- `fileops.rs` — renomear, mover e copiar arquivos; criar pastas
 - `watch.rs` — observa a pasta aberta e avisa a interface
 - `i18n.rs` — idioma atual e macro `tr!`
 - `lib.rs` — comandos Tauri expostos à interface
@@ -107,7 +107,14 @@ Uma pasta por linha: `nome|descrição|caminho absoluto`
 - Colar sobre arquivo de mesmo nome: perguntar se quer substituir
 - Após renomear/mover, a classificação é recalculada
 
+# Pastas na lista
+- As subpastas do nível logo abaixo (também vazias) aparecem depois dos arquivos, por nome; os arquivos incluem os das subpastas; ordenação por nome/data vale só para arquivos
+- Busca por nome filtra pastas; filtros de termo/data escondem pastas; modo Duplicados sem pastas
+- Duplo clique/Enter entra na pasta (a lista passa a mostrar só o que está dentro dela, com subpastas); clicar na coluna Subpasta de um arquivo entra nela com o arquivo selecionado; o título vira trilha `Pasta › 2024 › outubro` com os níveis anteriores clicáveis (também recebem arquivos soltos); Backspace ou Alt+↑ sobe um nível; o caminho no cabeçalho abre a pasta atual no gerenciador; colar, soltar e nova pasta valem para a pasta em que se está; soltar arquivos sobre a linha (de outro programa ou arrastados da própria lista, que move sem perguntar; ou colar com só ela selecionada) põe dentro dela; F2 renomeia; excluir manda para a lixeira avisando quantos arquivos as pastas contêm; copiar/recortar pastas inteiras não é suportado
+- Pastas da lateral também recebem arquivos soltos: da própria lista movem sem perguntar; de outro programa, pergunta copiar/mover
+- Nova pasta (botão e Ctrl+Shift+N): aceita subpastas (`2025/janeiro`), sugere a subpasta da seleção, opção de mover os arquivos selecionados para ela
+
 # Duplicados
-- Modo na barra de ferramentas: por nome (sem diferenciar maiúsculas) ou por conteúdo, na pasta aberta com subpastas
+- Modo na barra de ferramentas: por nome (sem diferenciar maiúsculas) ou por conteúdo, na pasta em que se está, com subpastas
 - Conteúdo: tamanho → amostra início/fim (64 kB) → BLAKE3 completo; cache em memória; vazios ignorados; progresso e cancelar
 - No modo: grupos com título e coluna Tamanho; filtros, busca e ordenação suspensos; operações normais

@@ -20,19 +20,41 @@ pub struct FileEntry {
     pub classification: Classification,
 }
 
+/// Subpasta da pasta listada (também as vazias).
+#[derive(Debug, Clone, Serialize)]
+pub struct FolderEntry {
+    pub name: String,
+    /// Caminho relativo à pasta listada.
+    pub relative_path: String,
+    pub path: String,
+}
+
+/// Arquivos e subpastas de uma pasta, percorridos de uma vez.
+#[derive(Debug, Serialize)]
+pub struct Listing {
+    pub files: Vec<FileEntry>,
+    pub folders: Vec<FolderEntry>,
+}
+
 /// Lista recursivamente os arquivos de `root`, ignorando ocultos (nome iniciado por `.`).
 /// Links simbólicos para pastas não são seguidos. Subpastas sem permissão de leitura são puladas.
 pub fn list_files(root: &Path, classifier: &Classifier) -> io::Result<Vec<FileEntry>> {
+    list(root, classifier).map(|listing| listing.files)
+}
+
+/// Arquivos (como `list_files`) e subpastas de `root`, em ordem de caminho.
+pub fn list(root: &Path, classifier: &Classifier) -> io::Result<Listing> {
     if !fs::metadata(root)?.is_dir() {
         return Err(io::Error::new(io::ErrorKind::NotADirectory, crate::tr!("não é uma pasta", "not a folder")));
     }
-    let mut files = Vec::new();
-    walk(root, root, classifier, &mut files);
-    files.sort_by(|a, b| a.relative_path.to_lowercase().cmp(&b.relative_path.to_lowercase()));
-    Ok(files)
+    let mut listing = Listing { files: Vec::new(), folders: Vec::new() };
+    walk(root, root, classifier, &mut listing);
+    listing.files.sort_by(|a, b| a.relative_path.to_lowercase().cmp(&b.relative_path.to_lowercase()));
+    listing.folders.sort_by(|a, b| a.relative_path.to_lowercase().cmp(&b.relative_path.to_lowercase()));
+    Ok(listing)
 }
 
-fn walk(root: &Path, dir: &Path, classifier: &Classifier, files: &mut Vec<FileEntry>) {
+fn walk(root: &Path, dir: &Path, classifier: &Classifier, listing: &mut Listing) {
     let Ok(entries) = fs::read_dir(dir) else { return };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
@@ -41,12 +63,14 @@ fn walk(root: &Path, dir: &Path, classifier: &Classifier, files: &mut Vec<FileEn
         }
         let path = entry.path();
         let Ok(file_type) = entry.file_type() else { continue };
+        let relative_path = path.strip_prefix(root).unwrap_or(&path).to_string_lossy().into_owned();
         if file_type.is_dir() {
-            walk(root, &path, classifier, files);
+            listing.folders.push(FolderEntry { name, relative_path, path: path.to_string_lossy().into_owned() });
+            walk(root, &path, classifier, listing);
         } else if let Ok(meta) = fs::metadata(&path) // segue links simbólicos para arquivos
             && meta.is_file()
         {
-            files.push(FileEntry {
+            listing.files.push(FileEntry {
                 size: meta.len(),
                 modified: meta
                     .modified()
@@ -54,7 +78,7 @@ fn walk(root: &Path, dir: &Path, classifier: &Classifier, files: &mut Vec<FileEn
                     .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                     .map_or(0, |d| d.as_millis() as u64),
                 classification: classifier.classify(&name),
-                relative_path: path.strip_prefix(root).unwrap_or(&path).to_string_lossy().into_owned(),
+                relative_path,
                 path: path.to_string_lossy().into_owned(),
                 name,
             });
@@ -89,5 +113,19 @@ mod tests {
     fn missing_folder_is_not_found() {
         let err = list_files(Path::new("/nao/existe/cajabox"), &Classifier::new(&Default::default())).unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn lists_subfolders_including_empty_ones() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        fs::create_dir_all(root.join("2024/outubro")).unwrap();
+        fs::create_dir_all(root.join("vazia")).unwrap();
+        fs::create_dir_all(root.join(".oculta/sub")).unwrap();
+        fs::write(root.join("2024/outubro/a.png"), "x").unwrap();
+        let listing = list(root, &Classifier::new(&parse(""))).unwrap();
+        let folders: Vec<&str> = listing.folders.iter().map(|f| f.relative_path.as_str()).collect();
+        assert_eq!(folders, ["2024", "2024/outubro", "vazia"]);
+        assert_eq!(listing.files.len(), 1);
     }
 }

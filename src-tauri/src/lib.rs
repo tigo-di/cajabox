@@ -24,7 +24,6 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use classify::Classifier;
 use config::Config;
-use scan::FileEntry;
 
 #[derive(Serialize)]
 struct State {
@@ -347,11 +346,17 @@ fn cancel_duplicates(search: tauri::State<'_, duplicates::Search>) {
     search.cancel();
 }
 
-/// Arquivos classificados de uma pasta.
+/// Cria uma subpasta (`relative` pode ter subpastas) dentro da pasta listada; devolve o caminho.
 #[tauri::command]
-fn list_folder(path: String) -> Result<Vec<FileEntry>, String> {
+fn create_folder(root: String, relative: String) -> Result<String, String> {
+    fileops::create_folder(Path::new(&root), &relative).map(|p| p.display().to_string())
+}
+
+/// Arquivos classificados e subpastas de uma pasta.
+#[tauri::command]
+fn list_folder(path: String) -> Result<scan::Listing, String> {
     let (_, index) = load()?;
-    scan::list_files(Path::new(&path), &Classifier::new(&index)).map_err(|e| match e.kind() {
+    scan::list(Path::new(&path), &Classifier::new(&index)).map_err(|e| match e.kind() {
         io::ErrorKind::NotFound => tr!("Não foi possível encontrar o caminho: {path}", "Could not find the path: {path}"),
         _ => format!("{path}: {e}"),
     })
@@ -386,7 +391,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, drag_files, find_duplicates, cancel_duplicates, create_examples, set_language, open_folder, open_file, quit])
+        .invoke_handler(tauri::generate_handler![load_state, save_folders, save_index, move_config_file, list_folder, rename_file, trash_files, move_file, copy_file, watch_folder, clipboard_set, clipboard_get, clipboard_clear, split_files, drag_files, find_duplicates, cancel_duplicates, create_examples, set_language, create_folder, open_folder, open_file, quit])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
