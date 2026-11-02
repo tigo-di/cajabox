@@ -4,7 +4,7 @@ import type { FileEntry } from "./types";
 export type SortKey = "name" | "date";
 export type Sort = { key: SortKey; dir: "asc" | "desc" };
 
-const SORT_KEY = "manabox.sort";
+const SORT_KEY = "cajabox.sort";
 const DEFAULT_SORT: Sort = { key: "name", dir: "asc" };
 
 /** Ordem natural ("ep2" antes de "ep10"), sem diferenciar maiúsculas nem acentos. */

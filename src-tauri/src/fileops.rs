@@ -83,7 +83,7 @@ pub fn copy_to(path: &Path, dest_dir: &Path, overwrite: bool) -> io::Result<Outc
     }
     let mut temp_name = std::ffi::OsString::from(".");
     temp_name.push(name);
-    temp_name.push(".manabox-tmp");
+    temp_name.push(".cajabox-tmp");
     let temp = dest_dir.join(temp_name);
     if let Err(e) = copy_file(path, &temp).and_then(|_| fs::rename(&temp, &to)) {
         let _ = fs::remove_file(&temp);

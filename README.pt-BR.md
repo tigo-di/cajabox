@@ -1,8 +1,8 @@
-# manabox
+# cajabox
 
 Gerenciamento de conteúdo (news, vídeos, stories etc.) para Ubuntu. · [English](README.md)
 
-O manabox lista os arquivos de pastas cadastradas e permite filtrá-los pelos termos e datas presentes nos nomes, conforme um índice editável dentro do programa. Também renomeia, copia, recorta, cola e envia arquivos para a lixeira, encontra duplicados e troca arquivos com qualquer gerenciador de arquivos (área de transferência e arrastar e soltar).
+O cajabox lista os arquivos de pastas cadastradas e permite filtrá-los pelos termos e datas presentes nos nomes, conforme um índice editável dentro do programa. Também renomeia, copia, recorta, cola e envia arquivos para a lixeira, encontra duplicados e troca arquivos com qualquer gerenciador de arquivos (área de transferência e arrastar e soltar).
 
 ## Convenção de nomes
 
@@ -15,11 +15,11 @@ O manabox lista os arquivos de pastas cadastradas e permite filtrá-los pelos te
 1. Gere o AppImage (precisa de Docker): `scripts/build-appimage.sh` — o arquivo fica em `release/`.
 2. Instale para o seu usuário: `scripts/install.sh` — copia o AppImage para `~/.local/bin` e cria a entrada no menu de aplicativos.
 
-Para atualizar, gere e instale de novo. Para remover: `scripts/install.sh --uninstall` (a configuração em `~/.config/manabox` é mantida).
+Para atualizar, gere e instale de novo. Para remover: `scripts/install.sh --uninstall` (a configuração em `~/.config/cajabox` é mantida).
 
 O AppImage roda em Ubuntu 22.04 ou mais novo e precisa do pacote `libfuse2`.
 
-Na primeira execução, o programa pergunta o idioma (português ou inglês) e cria pastas de exemplo na sua pasta de Documentos (`manabox-exemplo`, ou `manabox-examples` em inglês) para mostrar como funciona (arquivos com `.example` no nome). Quando não precisar mais, apague a pasta e remova as pastas de exemplo em "Editar pastas". Para recriá-las: Configurações → "Criar pastas de exemplo".
+Na primeira execução, o programa pergunta o idioma (português ou inglês) e cria pastas de exemplo na sua pasta de Documentos (`cajabox-exemplo`, ou `cajabox-examples` em inglês) para mostrar como funciona (arquivos com `.example` no nome). Quando não precisar mais, apague a pasta e remova as pastas de exemplo em "Editar pastas". Para recriá-las: Configurações → "Criar pastas de exemplo".
 
 ## Desenvolvimento
 

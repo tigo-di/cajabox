@@ -42,7 +42,7 @@ impl FolderWatcher {
     }
 }
 
-/// Observa os arquivos de configuração (manabox.index.md e manabox.paths.md). Observa as pastas
+/// Observa os arquivos de configuração (cajabox.index.md e cajabox.paths.md). Observa as pastas
 /// deles, sem subpastas, e filtra pelo caminho: editores salvam gravando um arquivo novo e trocando
 /// pelo antigo, o que uma observação só do arquivo perderia.
 #[derive(Default)]
@@ -152,18 +152,18 @@ mod tests {
     #[test]
     fn config_watcher_notifies_only_watched_files_including_replace() {
         let dir = tempfile::tempdir().unwrap();
-        let index = dir.path().join("manabox.index.md");
+        let index = dir.path().join("cajabox.index.md");
         fs::write(&index, "# A\n").unwrap();
         let watcher = ConfigWatcher::default();
         let (tx, rx) = mpsc::channel();
-        watcher.watch(&[index.clone(), dir.path().join("manabox.paths.md")], move || tx.send(()).unwrap()).unwrap();
+        watcher.watch(&[index.clone(), dir.path().join("cajabox.paths.md")], move || tx.send(()).unwrap()).unwrap();
         thread::sleep(Duration::from_millis(100));
 
         fs::write(dir.path().join("outro.txt"), "x").unwrap();
         assert!(rx.recv_timeout(Duration::from_millis(1000)).is_err());
 
         // como editores salvam: grava arquivo temporário e troca pelo original
-        let temp = dir.path().join(".manabox.index.md.tmp");
+        let temp = dir.path().join(".cajabox.index.md.tmp");
         fs::write(&temp, "# B\n").unwrap();
         fs::rename(&temp, &index).unwrap();
         assert!(rx.recv_timeout(Duration::from_secs(3)).is_ok());

@@ -20,7 +20,7 @@ BT
 16 TL
 0 -10 Td
 T*
-(O manabox classifica os arquivos pelo nome.) Tj
+(O cajabox classifica os arquivos pelo nome.) Tj
 T*
 () Tj
 T*
@@ -40,7 +40,7 @@ T*
 T*
 (Estes são arquivos de exemplo \(.example antes da extensão\).) Tj
 T*
-(Quando não precisar mais, apague a pasta manabox-exemplo e) Tj
+(Quando não precisar mais, apague a pasta cajabox-exemplo e) Tj
 T*
 (remova as pastas de exemplo em Editar pastas.) Tj
 ET

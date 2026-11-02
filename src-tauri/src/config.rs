@@ -8,7 +8,7 @@ use crate::fileops::move_path;
 use crate::i18n::Lang;
 use crate::{index, paths};
 
-/// Localização de manabox.index.md e manabox.paths.md e idioma, guardados em `<pasta de config>/config`
+/// Localização de cajabox.index.md e cajabox.paths.md e idioma, guardados em `<pasta de config>/config`
 /// como `chave=valor`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Config {
@@ -29,8 +29,8 @@ impl ConfigFile {
     /// Nome fixo, com prefixo do programa para ser reconhecível em qualquer pasta.
     pub fn file_name(self) -> &'static str {
         match self {
-            ConfigFile::Index => "manabox.index.md",
-            ConfigFile::Paths => "manabox.paths.md",
+            ConfigFile::Index => "cajabox.index.md",
+            ConfigFile::Paths => "cajabox.paths.md",
         }
     }
 }
@@ -42,15 +42,53 @@ pub enum MoveOutcome {
     Exists(PathBuf),
 }
 
-/// `~/.config/manabox` no Linux.
+/// Programa renomeado de manabox para cajabox: move `<root>/manabox` para `<root>/cajabox` e renomeia
+/// manabox.index.md/manabox.paths.md para cajabox.*.md onde estiverem (inclusive fora da pasta de
+/// configuração), atualizando o arquivo `config`. Nada é apagado. Devolve se migrou.
+pub fn migrate_old_name(root: &Path) -> io::Result<bool> {
+    let (old, new) = (root.join("manabox"), root.join("cajabox"));
+    if new.exists() || !old.is_dir() {
+        return Ok(false);
+    }
+    fs::rename(&old, &new)?;
+    let text = fs::read_to_string(new.join("config")).unwrap_or_default();
+    let mut config = Config::locate(&new); // mantém o idioma
+    for file in [ConfigFile::Index, ConfigFile::Paths] {
+        let key = match file {
+            ConfigFile::Index => "index",
+            ConfigFile::Paths => "paths",
+        };
+        let old_name = format!("manabox.{key}.md");
+        let saved = text.lines().find_map(|line| line.strip_prefix(&format!("{key}=")).map(PathBuf::from));
+        let current = match saved {
+            Some(path) => path.strip_prefix(&old).map(|rest| new.join(rest)).unwrap_or(path),
+            None => new.join(&old_name),
+        };
+        let renamed = current.with_file_name(file.file_name());
+        let path = if current.file_name() == Some(old_name.as_ref()) && current.exists() && !renamed.exists() {
+            fs::rename(&current, &renamed)?;
+            renamed
+        } else {
+            current
+        };
+        match file {
+            ConfigFile::Index => config.index = path,
+            ConfigFile::Paths => config.paths = path,
+        }
+    }
+    config.save(&new)?;
+    Ok(true)
+}
+
+/// `~/.config/cajabox` no Linux.
 pub fn default_dir() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("manabox")
+        .join("cajabox")
 }
 
 impl Config {
-    /// Lê a configuração de `dir` e cria manabox.index.md e manabox.paths.md a partir dos modelos se não existirem.
+    /// Lê a configuração de `dir` e cria cajabox.index.md e cajabox.paths.md a partir dos modelos se não existirem.
     pub fn load(dir: &Path) -> io::Result<Config> {
         let config = Config::locate(dir);
         create_if_missing(&config.index, index::template())?;
@@ -58,7 +96,7 @@ impl Config {
         Ok(config)
     }
 
-    /// Onde estão manabox.index.md e manabox.paths.md (sem criar nada).
+    /// Onde estão cajabox.index.md e cajabox.paths.md (sem criar nada).
     pub fn locate(dir: &Path) -> Config {
         let mut config = Config {
             index: dir.join(ConfigFile::Index.file_name()),
@@ -98,7 +136,7 @@ impl Config {
         }
     }
 
-    /// Move manabox.index.md ou manabox.paths.md para `dest_dir` com o nome fixo (renomeia nomes antigos)
+    /// Move cajabox.index.md ou cajabox.paths.md para `dest_dir` com o nome fixo (renomeia nomes antigos)
     /// e grava a config em `config_dir`.
     /// Sem `overwrite`, um arquivo de mesmo nome no destino não é tocado e o retorno é `Exists`.
     /// Se gravar a config falhar, o arquivo volta para o lugar original.
@@ -137,6 +175,44 @@ mod tests {
     use super::*;
 
     #[test]
+    fn migrates_old_name_in_default_location() {
+        let root = tempfile::tempdir().unwrap();
+        let old = root.path().join("manabox");
+        fs::create_dir(&old).unwrap();
+        fs::write(old.join("manabox.index.md"), "# A\n").unwrap();
+        fs::write(old.join("manabox.paths.md"), "x|y|/z\n").unwrap();
+        fs::write(old.join("config"), "language=en\n").unwrap();
+
+        assert!(migrate_old_name(root.path()).unwrap());
+        let new = root.path().join("cajabox");
+        assert!(!old.exists());
+        assert_eq!(fs::read_to_string(new.join("cajabox.index.md")).unwrap(), "# A\n");
+        assert_eq!(fs::read_to_string(new.join("cajabox.paths.md")).unwrap(), "x|y|/z\n");
+        let config = Config::locate(&new);
+        assert_eq!((config.index, config.paths, config.language), (new.join("cajabox.index.md"), new.join("cajabox.paths.md"), Some(Lang::En)));
+        assert!(!migrate_old_name(root.path()).unwrap(), "segunda vez não faz nada");
+    }
+
+    #[test]
+    fn migrates_files_moved_elsewhere() {
+        let root = tempfile::tempdir().unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        let old = root.path().join("manabox");
+        fs::create_dir(&old).unwrap();
+        fs::write(old.join("manabox.paths.md"), "p").unwrap();
+        fs::write(elsewhere.path().join("manabox.index.md"), "i").unwrap();
+        fs::write(old.join("config"), format!("index={}\npaths={}\n", elsewhere.path().join("manabox.index.md").display(), old.join("manabox.paths.md").display())).unwrap();
+
+        migrate_old_name(root.path()).unwrap();
+        let new = root.path().join("cajabox");
+        let config = Config::locate(&new);
+        assert_eq!(config.index, elsewhere.path().join("cajabox.index.md"));
+        assert_eq!(config.paths, new.join("cajabox.paths.md"));
+        assert_eq!(fs::read_to_string(&config.index).unwrap(), "i");
+        assert_eq!(fs::read_to_string(&config.paths).unwrap(), "p");
+    }
+
+    #[test]
     fn language_is_saved_and_read() {
         let dir = tempfile::tempdir().unwrap();
         let mut config = Config::locate(dir.path());
@@ -150,18 +226,18 @@ mod tests {
     fn creates_files_from_templates_in_default_location() {
         let dir = tempfile::tempdir().unwrap();
         let config = Config::load(dir.path()).unwrap();
-        assert_eq!(config.index, dir.path().join("manabox.index.md"));
+        assert_eq!(config.index, dir.path().join("cajabox.index.md"));
         assert_eq!(fs::read_to_string(&config.paths).unwrap(), paths::TEMPLATE);
     }
 
     #[test]
     fn keeps_existing_files_and_saved_locations() {
         let dir = tempfile::tempdir().unwrap();
-        let other = dir.path().join("outro/manabox.index.md");
+        let other = dir.path().join("outro/cajabox.index.md");
         fs::create_dir_all(other.parent().unwrap()).unwrap();
         fs::write(&other, "# Meu").unwrap();
 
-        let config = Config { index: other.clone(), paths: dir.path().join("manabox.paths.md"), language: None };
+        let config = Config { index: other.clone(), paths: dir.path().join("cajabox.paths.md"), language: None };
         config.save(dir.path()).unwrap();
 
         let loaded = Config::load(dir.path()).unwrap();
@@ -179,9 +255,9 @@ mod tests {
 
         let outcome = config.move_file(ConfigFile::Index, &dest, false, dir.path()).unwrap();
         assert_eq!(outcome, MoveOutcome::Moved);
-        assert_eq!(config.index, dest.join("manabox.index.md"));
-        assert!(!dir.path().join("manabox.index.md").exists());
-        assert_eq!(fs::read_to_string(dest.join("manabox.index.md")).unwrap(), "# Meu");
+        assert_eq!(config.index, dest.join("cajabox.index.md"));
+        assert!(!dir.path().join("cajabox.index.md").exists());
+        assert_eq!(fs::read_to_string(dest.join("cajabox.index.md")).unwrap(), "# Meu");
         assert_eq!(Config::load(dir.path()).unwrap(), config);
     }
 
@@ -190,18 +266,18 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let dest = dir.path().join("dest");
         fs::create_dir(&dest).unwrap();
-        fs::write(dest.join("manabox.paths.md"), "antigo").unwrap();
+        fs::write(dest.join("cajabox.paths.md"), "antigo").unwrap();
         let mut config = Config::load(dir.path()).unwrap();
         fs::write(&config.paths, "novo").unwrap();
 
         let outcome = config.move_file(ConfigFile::Paths, &dest, false, dir.path()).unwrap();
-        assert_eq!(outcome, MoveOutcome::Exists(dest.join("manabox.paths.md")));
-        assert_eq!(config.paths, dir.path().join("manabox.paths.md"));
-        assert_eq!(fs::read_to_string(dest.join("manabox.paths.md")).unwrap(), "antigo");
+        assert_eq!(outcome, MoveOutcome::Exists(dest.join("cajabox.paths.md")));
+        assert_eq!(config.paths, dir.path().join("cajabox.paths.md"));
+        assert_eq!(fs::read_to_string(dest.join("cajabox.paths.md")).unwrap(), "antigo");
 
         config.move_file(ConfigFile::Paths, &dest, true, dir.path()).unwrap();
-        assert_eq!(config.paths, dest.join("manabox.paths.md"));
-        assert_eq!(fs::read_to_string(dest.join("manabox.paths.md")).unwrap(), "novo");
+        assert_eq!(config.paths, dest.join("cajabox.paths.md"));
+        assert_eq!(fs::read_to_string(dest.join("cajabox.paths.md")).unwrap(), "novo");
     }
 
     #[test]
@@ -219,10 +295,10 @@ mod tests {
         let old = dir.path().join("outro/index.md");
         fs::create_dir_all(old.parent().unwrap()).unwrap();
         fs::write(&old, "# Antigo").unwrap();
-        let mut config = Config { index: old.clone(), paths: dir.path().join("manabox.paths.md"), language: None };
+        let mut config = Config { index: old.clone(), paths: dir.path().join("cajabox.paths.md"), language: None };
 
         config.move_file(ConfigFile::Index, old.parent().unwrap(), false, dir.path()).unwrap();
-        assert_eq!(config.index, dir.path().join("outro/manabox.index.md"));
+        assert_eq!(config.index, dir.path().join("outro/cajabox.index.md"));
         assert!(!old.exists());
         assert_eq!(fs::read_to_string(&config.index).unwrap(), "# Antigo");
     }

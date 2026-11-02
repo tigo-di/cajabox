@@ -1,4 +1,4 @@
-//! Arrastar arquivos do manabox para outro programa (gerenciador de arquivos, navegador),
+//! Arrastar arquivos do cajabox para outro programa (gerenciador de arquivos, navegador),
 //! via GTK. Oferece copiar e mover; quem decide é o programa que recebe (ex.: no Nautilus,
 //! mesmo disco = mover, outro disco = copiar; Ctrl/Shift trocam).
 

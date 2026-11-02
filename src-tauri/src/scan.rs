@@ -87,7 +87,7 @@ mod tests {
 
     #[test]
     fn missing_folder_is_not_found() {
-        let err = list_files(Path::new("/nao/existe/manabox"), &Classifier::new(&Default::default())).unwrap_err();
+        let err = list_files(Path::new("/nao/existe/cajabox"), &Classifier::new(&Default::default())).unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::NotFound);
     }
 }

@@ -5,7 +5,7 @@ import { t } from "./i18n";
 import { notSaved, saveConfig } from "./save-config";
 import type { Folder, State } from "./types";
 
-/** Abre o editor de pastas (manabox.paths.md); `onSaved` recebe o estado já gravado. */
+/** Abre o editor de pastas (cajabox.paths.md); `onSaved` recebe o estado já gravado. */
 export function openFoldersEditor(folders: Folder[], version: string, onSaved: (state: State) => void) {
   const rows = el("div", { class: "editor-rows" });
   const error = el("p", { class: "editor-error" });

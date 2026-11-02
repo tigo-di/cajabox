@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Gera o AppImage do manabox dentro do Docker (Ubuntu 22.04) e copia para release/.
+# Gera o AppImage do cajabox dentro do Docker (Ubuntu 22.04) e copia para release/.
 # node_modules, target e caches do container ficam em volumes Docker próprios: não se misturam
 # com os do host, compilados com outra glibc.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-IMAGE=manabox-appimage
+IMAGE=cajabox-appimage
 VOLUMES=(
     -v "$ROOT:/app"
-    -v manabox-appimage-node_modules:/app/node_modules
-    -v manabox-appimage-target:/app/src-tauri/target
-    -v manabox-appimage-cache:/cache
+    -v cajabox-appimage-node_modules:/app/node_modules
+    -v cajabox-appimage-target:/app/src-tauri/target
+    -v cajabox-appimage-cache:/cache
 )
 
 echo "==> Imagem $IMAGE"

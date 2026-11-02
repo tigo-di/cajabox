@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Instala o manabox para o usuário atual: AppImage, ícone e entrada no menu de aplicativos.
+# Instala o cajabox para o usuário atual: AppImage, ícone e entrada no menu de aplicativos.
 #   scripts/install.sh                    instala (ou atualiza) com o AppImage mais novo de release/
 #   scripts/install.sh arquivo.AppImage   instala esse AppImage
 #   scripts/install.sh --uninstall        remove o que foi instalado (a configuração é mantida)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP_ID=com.tigo.manabox # identifier do tauri.conf.json = app_id da janela no Wayland
-BIN="$HOME/.local/bin/manabox.AppImage"
+APP_ID=com.tigo.cajabox # identifier do tauri.conf.json = app_id da janela no Wayland
+BIN="$HOME/.local/bin/cajabox.AppImage"
 APPS="$HOME/.local/share/applications"
 DESKTOP="$APPS/$APP_ID.desktop"
 ICONS="$HOME/.local/share/icons/hicolor"
@@ -21,10 +21,10 @@ refresh_menu() {
 
 if [[ "${1:-}" == "--uninstall" ]]; then
     rm -f "$BIN" "$DESKTOP"
-    for size in "${SIZES[@]}"; do rm -f "$ICONS/${size}x${size}/apps/manabox.png"; done
+    for size in "${SIZES[@]}"; do rm -f "$ICONS/${size}x${size}/apps/cajabox.png"; done
     refresh_menu
-    echo "manabox removido."
-    echo "A configuração continua em ~/.config/manabox (apague a pasta se não for mais usar)."
+    echo "cajabox removido."
+    echo "A configuração continua em ~/.config/cajabox (apague a pasta se não for mais usar)."
     exit 0
 fi
 
@@ -34,23 +34,27 @@ if [[ -z "$APPIMAGE" || ! -f "$APPIMAGE" ]]; then
     exit 1
 fi
 
+# Programa renomeado (manabox → cajabox): remove a instalação antiga; a configuração é migrada pelo programa
+rm -f "$HOME/.local/bin/manabox.AppImage" "$APPS/com.tigo.manabox.desktop"
+for size in "${SIZES[@]}"; do rm -f "$ICONS/${size}x${size}/apps/manabox.png"; done
+
 install -Dm755 "$APPIMAGE" "$BIN"
 for i in "${!SIZES[@]}"; do
     size=${SIZES[$i]}
-    install -Dm644 "$ROOT/src-tauri/icons/${ICON_SOURCES[$i]}" "$ICONS/${size}x${size}/apps/manabox.png"
+    install -Dm644 "$ROOT/src-tauri/icons/${ICON_SOURCES[$i]}" "$ICONS/${size}x${size}/apps/cajabox.png"
 done
 mkdir -p "$APPS"
 cat > "$DESKTOP" <<EOF
 [Desktop Entry]
 Type=Application
-Name=manabox
+Name=cajabox
 Comment=Gerenciamento de conteúdo
 Exec="$BIN"
-Icon=manabox
+Icon=cajabox
 Terminal=false
 Categories=Utility;FileTools;
-StartupWMClass=manabox
+StartupWMClass=cajabox
 EOF
 refresh_menu
-echo "manabox instalado a partir de $(basename "$APPIMAGE")."
+echo "cajabox instalado a partir de $(basename "$APPIMAGE")."
 echo "Abra pelo menu de aplicativos. Para remover: scripts/install.sh --uninstall"

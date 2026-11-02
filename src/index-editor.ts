@@ -5,7 +5,7 @@ import { t } from "./i18n";
 import { notSaved, saveConfig } from "./save-config";
 import type { Section, State, Term } from "./types";
 
-const COLLAPSED_KEY = "manabox.indexEditorCollapsed";
+const COLLAPSED_KEY = "cajabox.indexEditorCollapsed";
 
 /** Seções recolhidas no editor (pelo nome), lembradas entre aberturas. */
 function readCollapsed(): Set<string> {
@@ -25,7 +25,7 @@ function saveCollapsed(names: string[]) {
   }
 }
 
-/** Abre o editor do índice (manabox.index.md); `onSaved` recebe o estado já gravado. */
+/** Abre o editor do índice (cajabox.index.md); `onSaved` recebe o estado já gravado. */
 export function openIndexEditor(sections: Section[], version: string, onSaved: (state: State) => void) {
   const list = el("div", { class: "index-sections" });
   const collapsed = readCollapsed();

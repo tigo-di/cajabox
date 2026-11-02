@@ -1,8 +1,8 @@
-# manabox
+# cajabox
 
 Content management (news, videos, stories, etc.) for Ubuntu. · [Português](README.pt-BR.md)
 
-manabox lists the files in registered folders and lets you filter them by the terms and dates in their names, according to an index you edit inside the program. It also renames, copies, cuts, pastes and moves files to the trash, finds duplicates, and exchanges files with any file manager (clipboard and drag and drop).
+cajabox lists the files in registered folders and lets you filter them by the terms and dates in their names, according to an index you edit inside the program. It also renames, copies, cuts, pastes and moves files to the trash, finds duplicates, and exchanges files with any file manager (clipboard and drag and drop).
 
 ## Naming convention
 
@@ -15,11 +15,11 @@ manabox lists the files in registered folders and lets you filter them by the te
 1. Build the AppImage (requires Docker): `scripts/build-appimage.sh` — the file goes to `release/`.
 2. Install it for your user: `scripts/install.sh` — copies the AppImage to `~/.local/bin` and creates the application menu entry.
 
-To update, build and install again. To remove: `scripts/install.sh --uninstall` (the configuration in `~/.config/manabox` is kept).
+To update, build and install again. To remove: `scripts/install.sh --uninstall` (the configuration in `~/.config/cajabox` is kept).
 
 The AppImage runs on Ubuntu 22.04 or newer and needs the `libfuse2` package.
 
-On the first run, manabox asks for the language (Portuguese or English) and creates example folders in your Documents folder (`manabox-examples`, or `manabox-exemplo` in Portuguese) to show how it works (files with `.example` in the name). When you no longer need them, delete the folder and remove the example folders under Folders › Edit. To recreate them: Settings → "Create example folders".
+On the first run, cajabox asks for the language (Portuguese or English) and creates example folders in your Documents folder (`cajabox-examples`, or `cajabox-exemplo` in Portuguese) to show how it works (files with `.example` in the name). When you no longer need them, delete the folder and remove the example folders under Folders › Edit. To recreate them: Settings → "Create example folders".
 
 ## Development
 

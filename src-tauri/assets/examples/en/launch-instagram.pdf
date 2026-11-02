@@ -20,7 +20,7 @@ BT
 16 TL
 0 -10 Td
 T*
-(manabox classifies files by their names.) Tj
+(cajabox classifies files by their names.) Tj
 T*
 () Tj
 T*
@@ -40,7 +40,7 @@ T*
 T*
 (These are example files \(.example before the extension\).) Tj
 T*
-(When you no longer need them, delete the manabox-examples folder) Tj
+(When you no longer need them, delete the cajabox-examples folder) Tj
 T*
 (and remove the example folders under Folders > Edit.) Tj
 ET

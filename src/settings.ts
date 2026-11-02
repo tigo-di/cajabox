@@ -11,7 +11,7 @@ type MoveResult = { status: "moved"; state: State } | { status: "exists"; path: 
 
 const parentOf = (path: string) => path.slice(0, path.lastIndexOf("/")) || "/";
 
-/** Mostra onde manabox.index.md e manabox.paths.md estão e permite movê-los; `onMoved` recebe o estado atualizado. */
+/** Mostra onde cajabox.index.md e cajabox.paths.md estão e permite movê-los; `onMoved` recebe o estado atualizado. */
 export function openSettings(state: State, onMoved: (state: State) => void) {
   const error = el("p", { class: "editor-error" });
   const rows = el("div", { class: "settings-files" });
@@ -24,8 +24,8 @@ export function openSettings(state: State, onMoved: (state: State) => void) {
     rows.replaceChildren(
       ...entries.map(([file, label, path]) => {
         const actions = el("div", { class: "settings-actions" });
-        // "Local padrão" só aparece fora de ~/.config/manabox (ou com nome antigo)
-        if (path !== `${current.default_dir}/manabox.${file}.md`) {
+        // "Local padrão" só aparece fora de ~/.config/cajabox (ou com nome antigo)
+        if (path !== `${current.default_dir}/cajabox.${file}.md`) {
           actions.append(button(t("settings.defaultLocation"), () => move(file, current.default_dir)));
         }
         actions.append(button(t("settings.move"), () => choose(file, path)));

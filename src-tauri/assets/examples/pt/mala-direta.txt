@@ -1,6 +1,6 @@
 Mala direta da promoção de dezembro (exemplo)
 
-O manabox classifica os arquivos pelo nome.
+O cajabox classifica os arquivos pelo nome.
 
 O nome é dividido em termos por hífen (-), sublinhado (_) ou espaço.
 Cada termo é procurado no índice (Editar índice): news, insta, promo...
@@ -10,5 +10,5 @@ Data de uso no nome: AAMMDD (241129 = 29/11/2024) ou AAMM (2412 = dez/2024).
 Sem data no nome, vale a data de modificação do arquivo.
 
 Estes são arquivos de exemplo (.example antes da extensão).
-Quando não precisar mais, apague a pasta manabox-exemplo e
+Quando não precisar mais, apague a pasta cajabox-exemplo e
 remova as pastas de exemplo em Editar pastas.

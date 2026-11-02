@@ -1,6 +1,6 @@
 December promotion direct mail (example)
 
-manabox classifies files by their names.
+cajabox classifies files by their names.
 
 The name is split into terms by hyphen (-), underscore (_) or space.
 Each term is looked up in the index (Edit index): news, insta, promo...
@@ -10,5 +10,5 @@ Date of use in the name: YYMMDD (241129 = 2024-11-29) or YYMM (2412 = 2024-12).
 Without a date in the name, the file's modification date is used.
 
 These are example files (.example before the extension).
-When you no longer need them, delete the manabox-examples folder
+When you no longer need them, delete the cajabox-examples folder
 and remove the example folders under Folders > Edit.
