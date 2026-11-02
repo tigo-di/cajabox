@@ -4,19 +4,16 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { ask, message, open } from "@tauri-apps/plugin-dialog";
 
 import { openAbout } from "./about";
+import { chooseLanguage, formatDate, monthName, setLang, systemLang } from "./i18n";
 import { $, button, choose, el, promptText } from "./dom";
 import { effectiveDate, emptyFilters, isEmpty, matches, monthsOf, termKey, yearsOf, type YearFilter } from "./filter";
 import { openFoldersEditor } from "./folders-editor";
 import { openIndexEditor } from "./index-editor";
 import { openSettings } from "./settings";
 import { readSort, saveSort, sortFiles, toggleSort, type SortKey } from "./sort";
-import type { FileDate, FileEntry, Folder, State } from "./types";
+import type { FileEntry, Folder, State } from "./types";
 
 const LAST_FOLDER_KEY = "manabox.lastFolder";
-const MONTHS = [
-  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
-];
 
 let state: State | null = null;
 let current: Folder | null = null;
@@ -70,10 +67,6 @@ let draggingOut = false;
 
 type FileResult = { status: "done" | "exists"; path: string };
 
-function formatDate(date: FileDate): string {
-  const mm = String(date.month).padStart(2, "0");
-  return date.day === null ? `${mm}/${date.year}` : `${String(date.day).padStart(2, "0")}/${mm}/${date.year}`;
-}
 
 function readLastFolder(): string | null {
   try {
@@ -738,7 +731,7 @@ function renderFilters() {
   if (files.some((f) => f.date === null)) yearOptions.push(["none", "Sem data no nome"]);
   const monthOptions: [string, string][] = [
     ["", "Todos os meses"],
-    ...monthsOf(files, filters.year).map((m): [string, string] => [String(m), MONTHS[m - 1]]),
+    ...monthsOf(files, filters.year).map((m): [string, string] => [String(m), monthName(m)]),
   ];
   const yearSelect = select(yearOptions, filters.year === null ? "" : String(filters.year), (value) => {
     filters.year = value === "" ? null : value === "none" ? "none" : (Number(value) as YearFilter);
@@ -909,7 +902,17 @@ async function init() {
     if (event.payload === current?.path) reload();
   });
   try {
-    applyState(await invoke<State>("load_state"));
+    let loaded = await invoke<State>("load_state");
+    if (loaded.config.language) {
+      setLang(loaded.config.language);
+    } else {
+      // sem idioma escolhido (primeira execução, ou versão anterior): pergunta, com o do sistema marcado
+      const language = await chooseLanguage(systemLang());
+      await invoke("set_language", { language });
+      setLang(language);
+      loaded = loaded.first_run ? await invoke<State>("create_examples") : await invoke<State>("load_state");
+    }
+    applyState(loaded);
     refreshClipboard();
   } catch (error) {
     renderMessage(`Erro ao carregar configuração: ${error}`, "error");

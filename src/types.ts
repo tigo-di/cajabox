@@ -17,7 +17,7 @@ export interface Folder {
 }
 
 export interface State {
-  config: { index: string; paths: string };
+  config: { index: string; paths: string; language: "pt" | "en" | null };
   /** Pasta padrão de manabox.index.md e manabox.paths.md. */
   default_dir: string;
   index: { sections: Section[] };
@@ -26,6 +26,8 @@ export interface State {
   versions: { index: string; paths: string };
   /** Pasta das pastas de exemplo. */
   example_dir: string;
+  /** Primeira execução: perguntar o idioma e criar os exemplos. */
+  first_run: boolean;
 }
 
 export interface FileDate {

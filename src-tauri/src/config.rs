@@ -5,14 +5,18 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::fileops::move_path;
+use crate::i18n::Lang;
 use crate::index::TEMPLATE as INDEX_TEMPLATE;
 use crate::paths::TEMPLATE as PATHS_TEMPLATE;
 
-/// Localização de manabox.index.md e manabox.paths.md, guardada em `<pasta de config>/config` como `chave=caminho`.
+/// Localização de manabox.index.md e manabox.paths.md e idioma, guardados em `<pasta de config>/config`
+/// como `chave=valor`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Config {
     pub index: PathBuf,
     pub paths: PathBuf,
+    /// `None` = ainda não escolhido (a interface pergunta).
+    pub language: Option<Lang>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
@@ -60,12 +64,14 @@ impl Config {
         let mut config = Config {
             index: dir.join(ConfigFile::Index.file_name()),
             paths: dir.join(ConfigFile::Paths.file_name()),
+            language: None,
         };
         if let Ok(text) = fs::read_to_string(dir.join("config")) {
             for line in text.lines() {
                 match line.split_once('=').map(|(k, v)| (k.trim(), v.trim())) {
                     Some(("index", v)) if !v.is_empty() => config.index = v.into(),
                     Some(("paths", v)) if !v.is_empty() => config.paths = v.into(),
+                    Some(("language", v)) => config.language = Lang::parse(v),
                     _ => {}
                 }
             }
@@ -77,7 +83,12 @@ impl Config {
         fs::create_dir_all(dir)?;
         fs::write(
             dir.join("config"),
-            format!("index={}\npaths={}\n", self.index.display(), self.paths.display()),
+            format!(
+                "index={}\npaths={}\n{}",
+                self.index.display(),
+                self.paths.display(),
+                self.language.map(|l| format!("language={}\n", l.code())).unwrap_or_default()
+            ),
         )
     }
 
@@ -127,6 +138,16 @@ mod tests {
     use super::*;
 
     #[test]
+    fn language_is_saved_and_read() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::locate(dir.path());
+        assert_eq!(config.language, None);
+        config.language = Some(Lang::En);
+        config.save(dir.path()).unwrap();
+        assert_eq!(Config::locate(dir.path()).language, Some(Lang::En));
+    }
+
+    #[test]
     fn creates_files_from_templates_in_default_location() {
         let dir = tempfile::tempdir().unwrap();
         let config = Config::load(dir.path()).unwrap();
@@ -141,7 +162,7 @@ mod tests {
         fs::create_dir_all(other.parent().unwrap()).unwrap();
         fs::write(&other, "# Meu").unwrap();
 
-        let config = Config { index: other.clone(), paths: dir.path().join("manabox.paths.md") };
+        let config = Config { index: other.clone(), paths: dir.path().join("manabox.paths.md"), language: None };
         config.save(dir.path()).unwrap();
 
         let loaded = Config::load(dir.path()).unwrap();
@@ -199,7 +220,7 @@ mod tests {
         let old = dir.path().join("outro/index.md");
         fs::create_dir_all(old.parent().unwrap()).unwrap();
         fs::write(&old, "# Antigo").unwrap();
-        let mut config = Config { index: old.clone(), paths: dir.path().join("manabox.paths.md") };
+        let mut config = Config { index: old.clone(), paths: dir.path().join("manabox.paths.md"), language: None };
 
         config.move_file(ConfigFile::Index, old.parent().unwrap(), false, dir.path()).unwrap();
         assert_eq!(config.index, dir.path().join("outro/manabox.index.md"));

@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { ask, message, open } from "@tauri-apps/plugin-dialog";
 
 import { button, el } from "./dom";
+import { currentLang, t } from "./i18n";
 import type { State } from "./types";
 
 type ConfigFile = "index" | "paths";
@@ -79,12 +80,34 @@ export function openSettings(state: State, onMoved: (state: State) => void) {
     }
   }
 
+  const languageSelect = el(
+    "select",
+    { "aria-label": t("language.title") },
+    el("option", { value: "pt" }, "Português"),
+    el("option", { value: "en" }, "English"),
+  );
+  languageSelect.value = currentLang();
+  languageSelect.addEventListener("change", async () => {
+    try {
+      await invoke("set_language", { language: languageSelect.value });
+      location.reload(); // textos da interface são montados na abertura
+    } catch (e) {
+      error.textContent = String(e);
+    }
+  });
+
   render(state);
   const dialog = el(
     "dialog",
     { class: "editor settings" },
     el("h2", {}, "Configurações"),
     el("p", { class: "hint" }, "Arquivos onde o programa guarda o índice e as pastas. Ao mover, o nome é sempre manabox.index.md / manabox.paths.md."),
+    el(
+      "div",
+      { class: "settings-file" },
+      el("div", {}, el("div", { class: "settings-label" }, t("language.title")), el("div", { class: "hint" }, t("language.hint"))),
+      el("div", { class: "settings-actions" }, languageSelect),
+    ),
     rows,
     el(
       "div",
