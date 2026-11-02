@@ -10,20 +10,22 @@
 
   <body>
     <aside class="sidebar">
-      <div class="brand"><img class="brand-icon" src="/src-tauri/icons/icon.svg" alt="" />manabox</div>
-      <div class="sidebar-title">
-        <h2 data-i18n="sidebar.folders">Pastas</h2>
-        <button id="edit-folders" class="link" type="button" data-i18n="sidebar.edit">Editar</button>
+      <div class="sidebar-scroll">
+        <div class="brand"><img class="brand-icon" src="/src-tauri/icons/icon.svg" alt="" />manabox</div>
+        <div class="sidebar-title">
+          <h2 data-i18n="sidebar.folders">Pastas</h2>
+          <button id="edit-folders" class="link" type="button" data-i18n="sidebar.edit">Editar</button>
+        </div>
+        <nav id="folders"></nav>
+        <div class="sidebar-title filters-title">
+          <h2 data-i18n="sidebar.filters">Filtros</h2>
+          <span>
+            <button id="clear-filters" class="link" type="button" hidden data-i18n="sidebar.clear">Limpar</button>
+            <button id="edit-index" class="link" type="button" data-i18n="sidebar.editIndex">Editar índice</button>
+          </span>
+        </div>
+        <div id="filters"></div>
       </div>
-      <nav id="folders"></nav>
-      <div class="sidebar-title filters-title">
-        <h2 data-i18n="sidebar.filters">Filtros</h2>
-        <span>
-          <button id="clear-filters" class="link" type="button" hidden data-i18n="sidebar.clear">Limpar</button>
-          <button id="edit-index" class="link" type="button" data-i18n="sidebar.editIndex">Editar índice</button>
-        </span>
-      </div>
-      <div id="filters"></div>
       <footer class="sidebar-footer">
         <button id="open-settings" class="link" type="button" data-i18n="sidebar.settings">Configurações</button>
         <button id="open-about" class="link" type="button" data-i18n="sidebar.about">Sobre</button>

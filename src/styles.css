@@ -67,17 +67,25 @@ body {
 .sidebar {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   background: var(--sidebar);
   border-right: 1px solid var(--border);
-  padding: 16px 12px;
+}
+
+/* Pastas e filtros rolam; o rodapé fica fixo embaixo */
+.sidebar-scroll {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  padding: 16px 12px;
 }
 
 .sidebar-footer {
-  margin-top: auto;
-  padding-top: 20px;
   display: flex;
   justify-content: space-between;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--sidebar);
 }
 
 .brand {
@@ -617,7 +625,41 @@ dialog.editor .hint {
 }
 
 .section-row {
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+}
+
+.editor button.section-toggle {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  width: 18px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.editor button.section-toggle:hover {
+  color: var(--accent);
+}
+
+.term-count {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.index-section.collapsed .index-terms,
+.index-section.collapsed > button.link {
+  display: none;
+}
+
+.index-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-bottom: 8px;
 }
 
 .section-row .section-name {
