@@ -24,8 +24,10 @@ export interface State {
   folders: Folder[];
   /** Versão (hash do conteúdo) de cada arquivo lido; o editor a devolve ao salvar. */
   versions: { index: string; paths: string };
-  /** Pasta das pastas de exemplo. */
+  /** Pasta das pastas de exemplo no idioma atual. */
   example_dir: string;
+  /** Pastas de exemplo de todos os idiomas (aviso na interface). */
+  example_dirs: string[];
   /** Primeira execução: perguntar o idioma e criar os exemplos. */
   first_run: boolean;
 }

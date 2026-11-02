@@ -6,6 +6,15 @@ use crate::markdown::strip_comments;
 
 /// Conteúdo inicial do manabox.index.md; o comentário de ajuda é mantido ao gravar.
 pub const TEMPLATE: &str = include_str!("../../index-sample.md");
+const TEMPLATE_EN: &str = include_str!("../../index-sample.en.md");
+
+/// Comentário de ajuda no topo do arquivo, no idioma atual.
+pub fn template() -> &'static str {
+    match crate::i18n::current() {
+        crate::i18n::Lang::Pt => TEMPLATE,
+        crate::i18n::Lang::En => TEMPLATE_EN,
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Term {
@@ -96,30 +105,34 @@ pub fn validate(index: &Index) -> Result<(), String> {
     for section in &index.sections {
         let name = section.name.trim();
         if name.is_empty() || !single_line(name) {
-            return Err("Seção sem nome ou com quebra de linha".into());
+            return Err(crate::tr!("Seção sem nome ou com quebra de linha", "Section without a name or with a line break"));
         }
         if !sections.insert(name.to_lowercase()) {
-            return Err(format!("Seção repetida: {name}"));
+            return Err(crate::tr!("Seção repetida: {name}", "Repeated section: {name}"));
         }
         let mut seen = HashSet::new();
         for term in &section.terms {
             let label = format!("{name} › {}", term.name.trim());
             let term_name = term.name.trim();
             if tokenize(term_name).is_empty() || !single_line(term_name) {
-                return Err(format!("{name}: termo vazio ou com quebra de linha"));
+                return Err(crate::tr!("{name}: termo vazio ou com quebra de linha", "{name}: empty term or term with a line break"));
             }
             if term_name.starts_with(['#', '-']) {
-                return Err(format!("{label}: termo não pode começar com # ou -"));
+                return Err(crate::tr!("{label}: termo não pode começar com # ou -", "{label}: a term cannot start with # or -"));
             }
             if !seen.insert(tokenize(term_name)) {
-                return Err(format!("{label}: repetido na seção"));
+                return Err(crate::tr!("{label}: repetido na seção", "{label}: repeated in the section"));
             }
             for synonym in &term.synonyms {
                 if tokenize(synonym).is_empty() || !single_line(synonym) {
-                    return Err(format!("{label}: sinônimo vazio ou com quebra de linha"));
+                    return Err(crate::tr!("{label}: sinônimo vazio ou com quebra de linha", "{label}: empty synonym or synonym with a line break"));
                 }
                 if !seen.insert(tokenize(synonym)) {
-                    return Err(format!("{label}: sinônimo “{}” repetido na seção", synonym.trim()));
+                    return Err(crate::tr!(
+                        "{label}: sinônimo “{}” repetido na seção",
+                        "{label}: synonym “{}” repeated in the section",
+                        synonym.trim()
+                    ));
                 }
             }
         }
@@ -129,7 +142,7 @@ pub fn validate(index: &Index) -> Result<(), String> {
 
 /// Gera o manabox.index.md: comentário de ajuda seguido das seções, termos e sinônimos indentados.
 pub fn serialize(index: &Index) -> String {
-    let mut out = format!("{}\n", TEMPLATE.trim_end());
+    let mut out = format!("{}\n", template().trim_end());
     for section in &index.sections {
         out.push_str(&format!("\n# {}\n", section.name.trim()));
         for term in &section.terms {

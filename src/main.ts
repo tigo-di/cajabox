@@ -130,7 +130,7 @@ function renderHeader(shown: number | null) {
     ),
     current.description ? el("p", { class: "desc" }, current.description) : "",
     el("p", { class: "path" }, folderLink(current.path, current.path)),
-    state && current.path.startsWith(`${state.example_dir}/`)
+    state?.example_dirs.some((dir) => current?.path.startsWith(`${dir}/`))
       ? el(
           "p",
           { class: "notice" },

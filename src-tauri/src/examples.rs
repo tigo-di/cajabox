@@ -1,57 +1,103 @@
 //! Pastas de exemplo (~/Documentos/manabox-exemplo): mostram o programa funcionando na primeira
 //! execução, ou a pedido em Configurações. Nunca sobrescrevem arquivos; na configuração entra só o
-//! que falta. Os arquivos vêm de src-tauri/assets/exemplo (gerados por scripts/example-assets.py).
+//! que falta. Os arquivos vêm de src-tauri/assets/examples/{pt,en} (gerados por scripts/example-assets.py).
 
 use std::collections::HashSet;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+use crate::i18n::Lang;
 use crate::index::{self, Index, tokenize};
 use crate::paths::Folder;
 
-/// Pasta dos exemplos, dentro da pasta Documentos do sistema (o nome varia com o idioma).
-pub fn base_dir() -> PathBuf {
-    dirs::document_dir()
-        .or_else(|| dirs::home_dir().map(|home| home.join("Documentos")))
-        .unwrap_or_default()
-        .join("manabox-exemplo")
+/// Pasta dos exemplos no idioma, dentro da pasta Documentos do sistema (o nome varia com o idioma).
+pub fn base_dir(lang: Lang) -> PathBuf {
+    let documents = dirs::document_dir()
+        .or_else(|| dirs::home_dir().map(|home| home.join("Documents")))
+        .unwrap_or_default();
+    documents.join(match lang {
+        Lang::Pt => "manabox-exemplo",
+        Lang::En => "manabox-examples",
+    })
 }
 
-/// Termos que casam com os nomes dos arquivos de exemplo.
-const INDEX: &str = "# Canais\nnews\n- newsletter\ninsta\n- instagram\nemail\n- mala-direta\n# Campanhas\npromo\nlancamento\nblack-friday\n";
+/// Arquivos de uma pasta de exemplo: caminho relativo e conteúdo.
+type Files = &'static [(&'static str, &'static [u8])];
 
-/// O mesmo cartaz em todas as pastas; em Publicados também numa subpasta, com o mesmo nome: o modo
-/// Duplicados (por nome e por conteúdo) tem o que mostrar.
-const CARTAZ: &[u8] = include_bytes!("../assets/exemplo/cartaz.png");
+/// Exemplos de um idioma: termos que casam com os nomes dos arquivos, pastas e sufixo de nome em uso.
+struct Examples {
+    index: &'static str,
+    /// (subpasta, descrição, arquivos)
+    folders: [(&'static str, &'static str, Files); 2],
+    taken_suffix: &'static str,
+}
 
-/// (subpasta, descrição, arquivos com caminho relativo e conteúdo)
-const FOLDERS: [(&str, &str, &[(&str, &[u8])]); 2] = [
-    (
-        "Prontos",
-        "pronto para publicar (exemplo)",
-        &[
-            ("insta-promo-black-friday-241129.example.png", CARTAZ),
-            ("newsletter-lancamento-250110.example.pdf", include_bytes!("../assets/exemplo/lancamento-newsletter.pdf")),
-            ("mala-direta-promo-2412.example.txt", include_bytes!("../assets/exemplo/mala-direta.txt")),
-        ],
-    ),
-    (
-        "Publicados",
-        "mídias publicadas (exemplo)",
-        &[
-            ("news-promo-black-friday-241129.example.png", CARTAZ),
-            ("2024/news-promo-black-friday-241129.example.png", CARTAZ),
-            ("instagram-lancamento-2501.example.pdf", include_bytes!("../assets/exemplo/lancamento-instagram.pdf")),
-            ("email-lancamento-250115.example.txt", include_bytes!("../assets/exemplo/email.txt")),
-        ],
-    ),
-];
+// O mesmo cartaz em todas as pastas; em Publicados/Published também numa subpasta, com o mesmo
+// nome: o modo Duplicados (por nome e por conteúdo) tem o que mostrar.
+const POSTER_PT: &[u8] = include_bytes!("../assets/examples/pt/poster.png");
+const POSTER_EN: &[u8] = include_bytes!("../assets/examples/en/poster.png");
+
+const PT: Examples = Examples {
+    index: "# Canais\nnews\n- newsletter\ninsta\n- instagram\nemail\n- mala-direta\n# Campanhas\npromo\nlancamento\nblack-friday\n",
+    folders: [
+        (
+            "Prontos",
+            "pronto para publicar (exemplo)",
+            &[
+                ("insta-promo-black-friday-241129.example.png", POSTER_PT),
+                ("newsletter-lancamento-250110.example.pdf", include_bytes!("../assets/examples/pt/lancamento-newsletter.pdf")),
+                ("mala-direta-promo-2412.example.txt", include_bytes!("../assets/examples/pt/mala-direta.txt")),
+            ],
+        ),
+        (
+            "Publicados",
+            "mídias publicadas (exemplo)",
+            &[
+                ("news-promo-black-friday-241129.example.png", POSTER_PT),
+                ("2024/news-promo-black-friday-241129.example.png", POSTER_PT),
+                ("instagram-lancamento-2501.example.pdf", include_bytes!("../assets/examples/pt/lancamento-instagram.pdf")),
+                ("email-lancamento-250115.example.txt", include_bytes!("../assets/examples/pt/email.txt")),
+            ],
+        ),
+    ],
+    taken_suffix: " (exemplo)",
+};
+
+const EN: Examples = Examples {
+    index: "# Channels\nnews\n- newsletter\ninsta\n- instagram\nemail\n- direct-mail\n# Campaigns\npromo\nlaunch\nblack-friday\n",
+    folders: [
+        (
+            "Ready",
+            "ready to publish (example)",
+            &[
+                ("insta-promo-black-friday-241129.example.png", POSTER_EN),
+                ("newsletter-launch-250110.example.pdf", include_bytes!("../assets/examples/en/launch-newsletter.pdf")),
+                ("direct-mail-promo-2412.example.txt", include_bytes!("../assets/examples/en/direct-mail.txt")),
+            ],
+        ),
+        (
+            "Published",
+            "published media (example)",
+            &[
+                ("news-promo-black-friday-241129.example.png", POSTER_EN),
+                ("2024/news-promo-black-friday-241129.example.png", POSTER_EN),
+                ("instagram-launch-2501.example.pdf", include_bytes!("../assets/examples/en/launch-instagram.pdf")),
+                ("email-launch-250115.example.txt", include_bytes!("../assets/examples/en/email.txt")),
+            ],
+        ),
+    ],
+    taken_suffix: " (example)",
+};
 
 /// Cria em `base` as pastas e arquivos de exemplo que faltam e acrescenta ao índice e às pastas
 /// cadastradas o que falta (seções e termos pelo nome, pastas pelo caminho).
-pub fn install(base: &Path, index: &mut Index, folders: &mut Vec<Folder>) -> io::Result<()> {
-    for (dir, description, files) in &FOLDERS {
+pub fn install(base: &Path, lang: Lang, index: &mut Index, folders: &mut Vec<Folder>) -> io::Result<()> {
+    let examples = match lang {
+        Lang::Pt => &PT,
+        Lang::En => &EN,
+    };
+    for (dir, description, files) in &examples.folders {
         let path = base.join(dir);
         fs::create_dir_all(&path)?;
         for (name, content) in files.iter() {
@@ -65,20 +111,20 @@ pub fn install(base: &Path, index: &mut Index, folders: &mut Vec<Folder>) -> io:
                 Err(e) => return Err(e),
             }
         }
-        add_folder(folders, dir, description, &path);
+        add_folder(folders, dir, description, &path, examples.taken_suffix);
     }
-    merge_index(index, index::parse(INDEX));
+    merge_index(index, index::parse(examples.index));
     Ok(())
 }
 
-/// Cadastra a pasta se o caminho ainda não está cadastrado; nome em uso ganha " (exemplo)".
-fn add_folder(folders: &mut Vec<Folder>, name: &str, description: &str, path: &Path) {
+/// Cadastra a pasta se o caminho ainda não está cadastrado; nome em uso ganha `taken_suffix`.
+fn add_folder(folders: &mut Vec<Folder>, name: &str, description: &str, path: &Path, taken_suffix: &str) {
     let path = path.to_string_lossy().into_owned();
     if folders.iter().any(|f| f.path == path) {
         return;
     }
     let taken = folders.iter().any(|f| f.name.to_lowercase() == name.to_lowercase());
-    let name = if taken { format!("{name} (exemplo)") } else { name.to_string() };
+    let name = if taken { format!("{name}{taken_suffix}") } else { name.to_string() };
     folders.push(Folder { name, description: description.into(), path });
 }
 
@@ -118,7 +164,7 @@ mod tests {
     fn creates_folders_files_index_and_registrations() {
         let base = tempfile::tempdir().unwrap();
         let (mut index, mut folders) = (Index::default(), Vec::new());
-        install(base.path(), &mut index, &mut folders).unwrap();
+        install(base.path(), Lang::Pt, &mut index, &mut folders).unwrap();
 
         assert_eq!(folders.iter().map(|f| f.name.as_str()).collect::<Vec<_>>(), ["Prontos", "Publicados"]);
         paths::validate(&folders).unwrap();
@@ -148,8 +194,8 @@ mod tests {
         let mut index = index::parse("# canais\nnews\n- boletim\n# Cores\nazul\n");
         let mut folders = vec![Folder { name: "prontos".into(), description: "minha".into(), path: "/outro/lugar".into() }];
 
-        install(base.path(), &mut index, &mut folders).unwrap();
-        install(base.path(), &mut index, &mut folders).unwrap(); // segunda vez não repete nada
+        install(base.path(), Lang::Pt, &mut index, &mut folders).unwrap();
+        install(base.path(), Lang::Pt, &mut index, &mut folders).unwrap(); // segunda vez não repete nada
 
         assert_eq!(fs::read_to_string(&edited).unwrap(), "editado pelo usuário");
         let names: Vec<&str> = folders.iter().map(|f| f.name.as_str()).collect();
@@ -160,5 +206,19 @@ mod tests {
         assert_eq!(canais.terms[0].synonyms, ["boletim"], "termo do usuário intacto");
         assert_eq!(index.sections.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), ["canais", "Cores", "Campanhas"]);
         index::validate(&index).unwrap();
+    }
+
+    #[test]
+    fn english_examples_are_classified() {
+        let base = tempfile::tempdir().unwrap();
+        let (mut index, mut folders) = (Index::default(), Vec::new());
+        install(base.path(), Lang::En, &mut index, &mut folders).unwrap();
+        assert_eq!(folders.iter().map(|f| f.name.as_str()).collect::<Vec<_>>(), ["Ready", "Published"]);
+        assert_eq!(index.sections.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), ["Channels", "Campaigns"]);
+        let classifier = Classifier::new(&index::parse(&index::serialize(&index)));
+        for file in list_files(&base.path().join("Ready"), &classifier).unwrap() {
+            assert!(file.classification.terms.iter().all(|t| !t.is_empty()), "{} sem termo em alguma seção", file.name);
+            assert!(file.classification.date.is_some(), "{} sem data", file.name);
+        }
     }
 }

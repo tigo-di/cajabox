@@ -35,8 +35,10 @@ struct State {
     folders: Vec<paths::Folder>,
     /// Versão (hash do conteúdo) de cada arquivo lido: o editor interno a devolve ao salvar.
     versions: Versions,
-    /// Pasta das pastas de exemplo (aviso na interface).
+    /// Pasta das pastas de exemplo no idioma atual.
     example_dir: String,
+    /// Pastas de exemplo de todos os idiomas (aviso na interface).
+    example_dirs: Vec<String>,
     /// Primeira execução: a interface pergunta o idioma e então cria os exemplos.
     first_run: bool,
 }
@@ -73,7 +75,7 @@ fn save_checked(path: &Path, content: String, expected: &str, overwrite: bool) -
     if !overwrite && version(path)? != expected {
         return Ok(SaveResult::Changed);
     }
-    fs::write(path, content).map_err(|e| format!("Erro ao gravar {}: {e}", path.display()))?;
+    fs::write(path, content).map_err(|e| tr!("Erro ao gravar {}: {e}", "Error writing {}: {e}", path.display()))?;
     Ok(SaveResult::Saved { state: read_state(false)? })
 }
 
@@ -94,8 +96,9 @@ fn read_state(first_run: bool) -> Result<State, String> {
     let folders = paths::parse(&fs::read_to_string(&config.paths).map_err(|e| e.to_string())?);
     let default_dir = config::default_dir().display().to_string();
     let versions = Versions { index: version(&config.index)?, paths: version(&config.paths)? };
-    let example_dir = examples::base_dir().display().to_string();
-    Ok(State { config, default_dir, index, folders, versions, example_dir, first_run })
+    let example_dirs = [i18n::Lang::Pt, i18n::Lang::En].map(|lang| examples::base_dir(lang).display().to_string()).to_vec();
+    let example_dir = examples::base_dir(i18n::current()).display().to_string();
+    Ok(State { config, default_dir, index, folders, versions, example_dir, example_dirs, first_run })
 }
 
 /// Grava a lista de pastas no manabox.paths.md e devolve o estado atualizado. Se o arquivo mudou
@@ -143,7 +146,7 @@ fn move_config_file(file: config::ConfigFile, dest_dir: String, overwrite: bool,
             Ok(MoveResult::Moved { state: read_state(false)? })
         }
         Ok(config::MoveOutcome::Exists(path)) => Ok(MoveResult::Exists { path: path.display().to_string() }),
-        Err(e) => Err(format!("Erro ao mover para {dest_dir}: {e}")),
+        Err(e) => Err(tr!("Erro ao mover para {dest_dir}: {e}", "Error moving to {dest_dir}: {e}")),
     }
 }
 
@@ -156,7 +159,7 @@ fn rename_file(path: String, new_name: String) -> Result<String, String> {
 /// Envia arquivos para a lixeira do sistema.
 #[tauri::command]
 fn trash_files(paths: Vec<String>) -> Result<(), String> {
-    trash::delete_all(&paths).map_err(|e| format!("Erro ao enviar para a lixeira: {e}"))
+    trash::delete_all(&paths).map_err(|e| tr!("Erro ao enviar para a lixeira: {e}", "Error moving to the trash: {e}"))
 }
 
 #[derive(Serialize)]
@@ -180,7 +183,7 @@ impl From<fileops::Outcome> for FileResult {
 fn move_file(path: String, dest_dir: String, overwrite: bool) -> Result<FileResult, String> {
     fileops::move_to(Path::new(&path), Path::new(&dest_dir), overwrite)
         .map(FileResult::from)
-        .map_err(|e| format!("Erro ao mover {path}: {e}"))
+        .map_err(|e| tr!("Erro ao mover {path}: {e}", "Error moving {path}: {e}"))
 }
 
 /// Copia um arquivo para outra pasta. Sem `overwrite`, conflito volta como `exists`.
@@ -188,7 +191,7 @@ fn move_file(path: String, dest_dir: String, overwrite: bool) -> Result<FileResu
 fn copy_file(path: String, dest_dir: String, overwrite: bool) -> Result<FileResult, String> {
     fileops::copy_to(Path::new(&path), Path::new(&dest_dir), overwrite)
         .map(FileResult::from)
-        .map_err(|e| format!("Erro ao copiar {path}: {e}"))
+        .map_err(|e| tr!("Erro ao copiar {path}: {e}", "Error copying {path}: {e}"))
 }
 
 /// Passa a observar `path` (e para a pasta anterior); mudanças emitem o evento `folder-changed` com o caminho.
@@ -266,18 +269,18 @@ fn drag_files(paths: Vec<String>, window: tauri::WebviewWindow, app: AppHandle) 
 #[tauri::command]
 fn open_folder(path: String) -> Result<(), String> {
     if !Path::new(&path).is_dir() {
-        return Err(format!("Não foi possível encontrar o caminho: {path}"));
+        return Err(tr!("Não foi possível encontrar o caminho: {path}", "Could not find the path: {path}"));
     }
-    launch::open(Path::new(&path)).map_err(|e| format!("Não foi possível abrir {path}: {e}"))
+    launch::open(Path::new(&path)).map_err(|e| tr!("Não foi possível abrir {path}: {e}", "Could not open {path}: {e}"))
 }
 
 /// Abre um arquivo com o programa padrão do sistema (mesmo motivo de `open_folder`).
 #[tauri::command]
 fn open_file(path: String) -> Result<(), String> {
     if !Path::new(&path).is_file() {
-        return Err(format!("Arquivo não encontrado: {path}"));
+        return Err(tr!("Arquivo não encontrado: {path}", "File not found: {path}"));
     }
-    launch::open(Path::new(&path)).map_err(|e| format!("Não foi possível abrir {path}: {e}"))
+    launch::open(Path::new(&path)).map_err(|e| tr!("Não foi possível abrir {path}: {e}", "Could not open {path}: {e}"))
 }
 
 /// Grava o idioma escolhido (vale para as mensagens do núcleo na hora).
@@ -297,12 +300,13 @@ fn create_examples(first_run: tauri::State<'_, FirstRun>) -> Result<State, Strin
     first_run.0.store(false, Ordering::Relaxed);
     let (config, mut index) = load()?;
     let mut folders = paths::parse(&fs::read_to_string(&config.paths).map_err(|e| e.to_string())?);
-    let base = examples::base_dir();
-    examples::install(&base, &mut index, &mut folders).map_err(|e| format!("Erro ao criar {}: {e}", base.display()))?;
+    let base = examples::base_dir(i18n::current());
+    examples::install(&base, i18n::current(), &mut index, &mut folders)
+        .map_err(|e| tr!("Erro ao criar {}: {e}", "Error creating {}: {e}", base.display()))?;
     index::validate(&index)?;
     paths::validate(&folders)?;
-    fs::write(&config.index, index::serialize(&index)).map_err(|e| format!("Erro ao gravar {}: {e}", config.index.display()))?;
-    fs::write(&config.paths, paths::serialize(&folders)).map_err(|e| format!("Erro ao gravar {}: {e}", config.paths.display()))?;
+    fs::write(&config.index, index::serialize(&index)).map_err(|e| tr!("Erro ao gravar {}: {e}", "Error writing {}: {e}", config.index.display()))?;
+    fs::write(&config.paths, paths::serialize(&folders)).map_err(|e| tr!("Erro ao gravar {}: {e}", "Error writing {}: {e}", config.paths.display()))?;
     read_state(false)
 }
 

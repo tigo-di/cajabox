@@ -6,8 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::fileops::move_path;
 use crate::i18n::Lang;
-use crate::index::TEMPLATE as INDEX_TEMPLATE;
-use crate::paths::TEMPLATE as PATHS_TEMPLATE;
+use crate::{index, paths};
 
 /// Localização de manabox.index.md e manabox.paths.md e idioma, guardados em `<pasta de config>/config`
 /// como `chave=valor`.
@@ -54,8 +53,8 @@ impl Config {
     /// Lê a configuração de `dir` e cria manabox.index.md e manabox.paths.md a partir dos modelos se não existirem.
     pub fn load(dir: &Path) -> io::Result<Config> {
         let config = Config::locate(dir);
-        create_if_missing(&config.index, INDEX_TEMPLATE)?;
-        create_if_missing(&config.paths, PATHS_TEMPLATE)?;
+        create_if_missing(&config.index, index::template())?;
+        create_if_missing(&config.paths, paths::template())?;
         Ok(config)
     }
 
@@ -152,7 +151,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let config = Config::load(dir.path()).unwrap();
         assert_eq!(config.index, dir.path().join("manabox.index.md"));
-        assert_eq!(fs::read_to_string(&config.paths).unwrap(), PATHS_TEMPLATE);
+        assert_eq!(fs::read_to_string(&config.paths).unwrap(), paths::TEMPLATE);
     }
 
     #[test]
