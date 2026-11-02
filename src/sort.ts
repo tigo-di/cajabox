@@ -1,3 +1,4 @@
+import { effectiveDate } from "./filter";
 import type { FileEntry } from "./types";
 
 export type SortKey = "name" | "date";
@@ -11,8 +12,11 @@ const collator = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base"
 
 const byName = (a: FileEntry, b: FileEntry) => collator.compare(a.name, b.name);
 
-/** Data do nome como número comparável; mês sem dia (dia 0) vem antes dos dias do mês. */
-const dateValue = (f: FileEntry) => (f.date ? f.date.year * 10000 + f.date.month * 100 + (f.date.day ?? 0) : null);
+/** Data efetiva (nome ou arquivo) como número comparável; mês sem dia (dia 0) vem antes dos dias do mês. */
+const dateValue = (f: FileEntry) => {
+  const date = effectiveDate(f);
+  return date ? date.year * 10000 + date.month * 100 + (date.day ?? 0) : null;
+};
 
 /** Ordena uma cópia de `files`. Por data: sem data sempre no fim; empate pelo nome (A–Z). */
 export function sortFiles(files: FileEntry[], sort: Sort): FileEntry[] {
