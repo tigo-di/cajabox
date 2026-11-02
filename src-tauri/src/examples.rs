@@ -32,7 +32,7 @@ const FOLDERS: [(&str, &str, &[(&str, &[u8])]); 2] = [
         "pronto para publicar (exemplo)",
         &[
             ("insta-promo-black-friday-241129.example.png", CARTAZ),
-            ("newsletter-lancamento-v250110.example.pdf", include_bytes!("../assets/exemplo/lancamento-newsletter.pdf")),
+            ("newsletter-lancamento-250110.example.pdf", include_bytes!("../assets/exemplo/lancamento-newsletter.pdf")),
             ("mala-direta-promo-2412.example.txt", include_bytes!("../assets/exemplo/mala-direta.txt")),
         ],
     ),

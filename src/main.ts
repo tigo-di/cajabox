@@ -417,7 +417,12 @@ function showTable(table: HTMLElement) {
 function dateCell(file: FileEntry) {
   const date = effectiveDate(file);
   const cell = el("td", { class: date?.fromFile ? "date from-file" : "date" }, date ? formatDate(date) : "");
-  if (date?.fromFile) cell.title = "Data de modificação do arquivo (sem data no nome)";
+  if (date?.fromFile) {
+    cell.title =
+      "Data de modificação do arquivo.\n" +
+      "Para fixar a data de uso, coloque-a no nome: AAMMDD (dia) ou AAMM (mês). " +
+      "Ex.: news-241129.png, insta-2501.png";
+  }
   return cell;
 }
 
