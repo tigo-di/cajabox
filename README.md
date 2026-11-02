@@ -1,6 +1,6 @@
 # cajabox
 
-Content management (news, videos, stories, etc.) for Ubuntu. · [Português](README.pt-BR.md)
+[Português](README.pt-BR.md)
 
 cajabox lists the files in registered folders and lets you filter them by the terms and dates in their names, according to an index you edit inside the program. It also renames, copies, cuts, pastes and moves files to the trash, finds duplicates, and exchanges files with any file manager (clipboard and drag and drop).
 
@@ -10,14 +10,18 @@ cajabox lists the files in registered folders and lets you filter them by the te
 - Terms are looked up in the index, organized in sections (e.g. Channels, Campaigns), with synonyms.
 - The date of use goes in the name as `YYMMDD` or `YYMM` (`241129` = 2024-11-29). Without a date in the name, the file's modification date is used.
 
+## Requirements
+
+- Linux with a graphical desktop (tested on Ubuntu 22.04 and 24.04, with GNOME)
+- The `libfuse2` package, to run the AppImage
+- Docker, only to build the AppImage from source
+
 ## Install
 
 1. Build the AppImage (requires Docker): `scripts/build-appimage.sh` — the file goes to `release/`.
 2. Install it for your user: `scripts/install.sh` — copies the AppImage to `~/.local/bin` and creates the application menu entry.
 
 To update, build and install again. To remove: `scripts/install.sh --uninstall` (the configuration in `~/.config/cajabox` is kept).
-
-The AppImage runs on Ubuntu 22.04 or newer and needs the `libfuse2` package.
 
 On the first run, cajabox asks for the language (Portuguese or English) and creates example folders in your Documents folder (`cajabox-examples`, or `cajabox-exemplo` in Portuguese) to show how it works (files with `.example` in the name). When you no longer need them, delete the folder and remove the example folders under Folders › Edit. To recreate them: Settings → "Create example folders".
 

@@ -1,6 +1,6 @@
 # cajabox
 
-Gerenciamento de conteúdo (news, vídeos, stories etc.) para Ubuntu. · [English](README.md)
+[English](README.md)
 
 O cajabox lista os arquivos de pastas cadastradas e permite filtrá-los pelos termos e datas presentes nos nomes, conforme um índice editável dentro do programa. Também renomeia, copia, recorta, cola e envia arquivos para a lixeira, encontra duplicados e troca arquivos com qualquer gerenciador de arquivos (área de transferência e arrastar e soltar).
 
@@ -10,14 +10,18 @@ O cajabox lista os arquivos de pastas cadastradas e permite filtrá-los pelos te
 - Os termos são procurados no índice, organizado em seções (ex.: Canais, Campanhas), com sinônimos.
 - A data de uso vai no nome como `AAMMDD` ou `AAMM` (`241129` = 29/11/2024). Sem data no nome, vale a data de modificação do arquivo.
 
+## Requisitos
+
+- Linux com interface gráfica (testado no Ubuntu 22.04 e 24.04, com GNOME)
+- Pacote `libfuse2`, para rodar o AppImage
+- Docker, só para gerar o AppImage a partir do código
+
 ## Instalar
 
 1. Gere o AppImage (precisa de Docker): `scripts/build-appimage.sh` — o arquivo fica em `release/`.
 2. Instale para o seu usuário: `scripts/install.sh` — copia o AppImage para `~/.local/bin` e cria a entrada no menu de aplicativos.
 
 Para atualizar, gere e instale de novo. Para remover: `scripts/install.sh --uninstall` (a configuração em `~/.config/cajabox` é mantida).
-
-O AppImage roda em Ubuntu 22.04 ou mais novo e precisa do pacote `libfuse2`.
 
 Na primeira execução, o programa pergunta o idioma (português ou inglês) e cria pastas de exemplo na sua pasta de Documentos (`cajabox-exemplo`, ou `cajabox-examples` em inglês) para mostrar como funciona (arquivos com `.example` no nome). Quando não precisar mais, apague a pasta e remova as pastas de exemplo em "Editar pastas". Para recriá-las: Configurações → "Criar pastas de exemplo".
 
