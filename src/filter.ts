@@ -55,6 +55,15 @@ export function matches(file: FileEntry, filters: Filters): boolean {
   return true;
 }
 
+/** Algum filtro de termo ou data marcado (esses filtros classificam arquivos: escondem as pastas). */
+export const filtersFiles = (filters: Filters) => filters.terms.size > 0 || filters.year !== null || filters.month !== null;
+
+/** Pasta casa com a busca: todas as palavras no nome. */
+export function matchesFolder(name: string, filters: Filters): boolean {
+  const target = normalize(name);
+  return normalize(filters.search).split(/\s+/).filter(Boolean).every((w) => target.includes(w));
+}
+
 /** Anos presentes nos arquivos, do mais recente para o mais antigo. */
 export function yearsOf(files: FileEntry[]): number[] {
   return [...new Set(files.flatMap((f) => effectiveDate(f)?.year ?? []))].sort((a, b) => b - a);

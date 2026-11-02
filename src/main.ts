@@ -6,18 +6,27 @@ import { ask, message, open } from "@tauri-apps/plugin-dialog";
 import { openAbout } from "./about";
 import { currentLang, formatDate, monthName, setLang, systemLang, t, type Key } from "./i18n";
 import { $, button, choose, chooseLanguage, el, promptText } from "./dom";
-import { effectiveDate, emptyFilters, isEmpty, matches, monthsOf, termKey, yearsOf, type YearFilter } from "./filter";
+import { effectiveDate, emptyFilters, filtersFiles, isEmpty, matches, matchesFolder, monthsOf, termKey, yearsOf, type YearFilter } from "./filter";
 import { openFoldersEditor } from "./folders-editor";
 import { openIndexEditor } from "./index-editor";
 import { openSettings } from "./settings";
 import { readSort, saveSort, sortFiles, toggleSort, type SortKey } from "./sort";
-import type { FileEntry, Folder, State } from "./types";
+import type { FileEntry, Folder, FolderEntry, State } from "./types";
 
 const LAST_FOLDER_KEY = "cajabox.lastFolder";
 
 let state: State | null = null;
 let current: Folder | null = null;
+/** Subpasta em que se entrou (relativa à pasta cadastrada; "" = raiz). */
+let within = "";
+/** Listagem completa da pasta cadastrada; `files` e `subfolders` são o recorte de `within`. */
+let listing: { files: FileEntry[]; folders: FolderEntry[] } = { files: [], folders: [] };
+/** Arquivos de `within` (com subpastas), caminhos relativos a ela. */
 let files: FileEntry[] = [];
+/** Subpastas logo abaixo de `within` (também as vazias). */
+let subfolders: FolderEntry[] = [];
+/** Subpastas mostradas: no fim da lista, depois dos arquivos (escondidas por filtros de termo/data). */
+let visibleFolders: FolderEntry[] = [];
 let filters = emptyFilters();
 /** Arquivos exibidos após os filtros, na ordem da tabela. */
 let visible: FileEntry[] = [];
@@ -61,9 +70,11 @@ function saveCollapsed() {
 }
 
 /** Linha onde o botão do mouse foi pressionado (possível início de arrasto para fora). */
-let pressed: { file: FileEntry; x: number; y: number } | null = null;
-/** Arrasto para fora em andamento: soltar na própria janela é ignorado. */
+let pressed: { path: string; x: number; y: number } | null = null;
+/** Arrasto para fora em andamento: soltar na própria janela só vale sobre uma pasta da lista. */
 let draggingOut = false;
+/** O que está sendo arrastado da própria lista (reconhece o "drop" de volta na janela). */
+let dragged = new Set<string>();
 
 type FileResult = { status: "done" | "exists"; path: string };
 
@@ -88,13 +99,13 @@ function renderFolders() {
   const list = $("#folders");
   list.replaceChildren();
   if (!state || state.folders.length === 0) {
-    list.append(el("p", { class: "hint" }, "Nenhuma pasta cadastrada. Use “Editar” para adicionar."));
+    list.append(el("p", { class: "hint" }, t("folders.none")));
     return;
   }
   for (const folder of state.folders) {
     const button = el(
       "button",
-      { class: "folder", type: "button", title: folder.path },
+      { class: "folder", type: "button", title: folder.path, "data-folder": folder.path, "data-label": folder.name },
       el("span", { class: "folder-name" }, folder.name),
       el("span", { class: "folder-desc" }, folder.description),
     );
@@ -119,7 +130,7 @@ function renderHeader(shown: number | null) {
     el(
       "div",
       { class: "title-row" },
-      el("h1", {}, current.name),
+      breadcrumb(current),
       shown === null
         ? ""
         : el(
@@ -129,7 +140,7 @@ function renderHeader(shown: number | null) {
           ),
     ),
     current.description ? el("p", { class: "desc" }, current.description) : "",
-    el("p", { class: "path" }, folderLink(current.path, current.path)),
+    el("p", { class: "path" }, folderLink(herePath(), herePath())),
     state?.example_dirs.some((dir) => current?.path.startsWith(`${dir}/`))
       ? el(
           "p",
@@ -138,6 +149,60 @@ function renderHeader(shown: number | null) {
         )
       : "",
   );
+}
+
+/** Pasta cadastrada › subpastas até `within`; as anteriores são clicáveis (voltam até elas) e recebem arquivos soltos. */
+function breadcrumb(folder: Folder) {
+  const title = el("h1", {});
+  const parts = within ? within.split("/") : [];
+  [folder.name, ...parts].forEach((part, i) => {
+    if (i > 0) title.append(el("span", { class: "crumb-sep" }, " › "));
+    if (i === parts.length) return title.append(part);
+    const relative = parts.slice(0, i).join("/");
+    const crumb = button(part, () => goTo(relative, joinPath(folder.path, parts.slice(0, i + 1).join("/"))), "link crumb");
+    crumb.title = t("crumb.hint");
+    crumb.dataset.folder = joinPath(folder.path, relative);
+    crumb.dataset.label = relative ? `${folder.name}/${relative}` : folder.name;
+    title.append(crumb);
+  });
+  return title;
+}
+
+const joinPath = (root: string, relative: string) => (relative ? `${root}/${relative}` : root);
+
+/** Caminho absoluto e nome (pasta cadastrada/subpasta) da pasta em que se está. */
+const herePath = () => joinPath(current!.path, within);
+const hereLabel = () => (within ? `${current!.name}/${within}` : current!.name);
+
+/** Recorta a listagem para `within` (caminhos relativos a ela); se ela sumiu, sobe até uma que exista. */
+function showWithin() {
+  while (within && !listing.folders.some((f) => f.relative_path === within)) {
+    within = within.includes("/") ? within.slice(0, within.lastIndexOf("/")) : "";
+  }
+  const prefix = within ? `${within}/` : "";
+  const inside = <T extends { relative_path: string }>(items: T[]) =>
+    items.filter((i) => i.relative_path.startsWith(prefix)).map((i) => ({ ...i, relative_path: i.relative_path.slice(prefix.length) }));
+  files = inside(listing.files);
+  subfolders = inside(listing.folders).filter((f) => !f.relative_path.includes("/")); // só o nível logo abaixo
+}
+
+/** Entra numa subpasta (relativa à pasta cadastrada; "" = raiz), sem reler o disco; `select` fica selecionado. */
+function goTo(relative: string, select?: string) {
+  if (duplicates) exitDuplicates();
+  within = relative;
+  showWithin();
+  selected = new Set(select ? [select] : []);
+  anchor = select ?? null;
+  normalizeDateFilter();
+  update();
+  $("#content").scrollTop = 0;
+}
+
+/** Sobe um nível, deixando selecionada a pasta de onde se saiu. */
+function goUp() {
+  if (!within) return;
+  const left = herePath();
+  goTo(within.includes("/") ? within.slice(0, within.lastIndexOf("/")) : "", left);
 }
 
 /** Caminho da pasta: clique abre no gerenciador de arquivos. */
@@ -153,10 +218,11 @@ function folderLink(label: string, path: string) {
   return link;
 }
 
-/** Subpasta do arquivo na lista: clique abre no gerenciador sem selecionar, arrastar nem abrir a linha. */
+/** Subpasta do arquivo na lista: clique entra nela (com o arquivo selecionado) sem arrastar nem abrir a linha. */
 function subdirLink(file: FileEntry) {
   const subdir = file.relative_path.slice(0, file.relative_path.lastIndexOf("/"));
-  const link = folderLink(subdir, file.path.slice(0, file.path.lastIndexOf("/")));
+  const link = button(subdir, () => goTo(file.path.slice(current!.path.length + 1, file.path.lastIndexOf("/")), file.path), "link path-link");
+  link.title = t("subdir.hint");
   for (const type of ["click", "mousedown", "dblclick"]) link.addEventListener(type, (event) => event.stopPropagation());
   return link;
 }
@@ -183,19 +249,25 @@ function termChips(file: FileEntry): HTMLElement {
   return cell;
 }
 
+/** Caminhos na ordem da lista: arquivos e depois pastas. */
+const rowPaths = () => [...visible.map((f) => f.path), ...visibleFolders.map((f) => f.path)];
+
+const isFolder = (path: string) => subfolders.some((f) => f.path === path);
+
 /** Clique seleciona um; Ctrl+clique alterna; Shift+clique seleciona o intervalo desde a âncora. */
-function clickRow(file: FileEntry, event: MouseEvent) {
-  const paths = visible.map((f) => f.path);
+
+function clickRow(path: string, event: MouseEvent) {
+  const paths = rowPaths();
   if (event.shiftKey && anchor && paths.includes(anchor)) {
-    const [a, b] = [paths.indexOf(anchor), paths.indexOf(file.path)].sort((x, y) => x - y);
+    const [a, b] = [paths.indexOf(anchor), paths.indexOf(path)].sort((x, y) => x - y);
     if (!event.ctrlKey) selected.clear();
     paths.slice(a, b + 1).forEach((p) => selected.add(p));
   } else if (event.ctrlKey || event.metaKey) {
-    if (!selected.delete(file.path)) selected.add(file.path);
-    anchor = file.path;
+    if (!selected.delete(path)) selected.add(path);
+    anchor = path;
   } else {
-    selected = new Set([file.path]);
-    anchor = file.path;
+    selected = new Set([path]);
+    anchor = path;
   }
   renderFiles();
 }
@@ -203,23 +275,26 @@ function clickRow(file: FileEntry, event: MouseEvent) {
 function renderToolbar() {
   const bar = $("#toolbar");
   bar.replaceChildren();
-  if (!current || (files.length === 0 && clipboard.paths.length === 0)) return;
+  if (!current || (files.length === 0 && subfolders.length === 0 && clipboard.paths.length === 0)) return;
 
   const count = selected.size;
   const rename = button(t("toolbar.rename"), renameSelected);
   rename.disabled = count !== 1;
   rename.title = "F2";
+  const selectedFiles = [...selected].filter((p) => !isFolder(p)).length;
   const copy = button(t("toolbar.copy"), () => toClipboard("copy"));
-  copy.disabled = count === 0;
+  copy.disabled = selectedFiles === 0;
   copy.title = "Ctrl+C";
   const cut = button(t("toolbar.cut"), () => toClipboard("cut"));
-  cut.disabled = count === 0;
+  cut.disabled = selectedFiles === 0;
   cut.title = "Ctrl+X";
   const remove = button(t("toolbar.delete"), trashSelected, "danger");
   remove.disabled = count === 0;
   remove.title = "Delete";
   const info = count ? t(count === 1 ? "toolbar.selectedOne" : "toolbar.selectedMany", { n: count }) : t("toolbar.noneSelected");
-  bar.append(el("div", { class: "toolbar-group" }, el("span", { class: "toolbar-info" }, info), rename, copy, cut, remove));
+  const create = button(t("newFolder.title"), newFolder);
+  create.title = "Ctrl+Shift+N";
+  bar.append(el("div", { class: "toolbar-group" }, el("span", { class: "toolbar-info" }, info), rename, copy, cut, remove, create));
 
   const searching = duplicates?.groups === null;
   const modeButton = (label: string, mode: DuplicateMode) => {
@@ -242,8 +317,10 @@ function renderToolbar() {
   const pending = clipboard.paths.length;
   if (pending) {
     const label = clipboard.mode === "copy" ? ["clipboard.copiedOne", "clipboard.copiedMany"] as const : ["clipboard.cutOne", "clipboard.cutMany"] as const;
-    const here = button(t("paste.here"), () => current && paste(current.path), "primary");
-    here.title = t("paste.hereHint");
+    const target = pasteTarget();
+    const intoFolder = target.path !== herePath();
+    const here = button(intoFolder ? t("paste.intoFolder", { folder: target.label }) : t("paste.here"), () => paste(target.path), "primary");
+    here.title = intoFolder ? `Ctrl+V — ${target.path}` : t("paste.hereHint");
     bar.append(
       el(
         "div",
@@ -297,7 +374,7 @@ async function findDuplicates(mode?: DuplicateMode) {
   const searching = duplicates;
   update();
   try {
-    const groups = await invoke<string[][] | null>("find_duplicates", { path: folder.path, mode: searching.mode });
+    const groups = await invoke<string[][] | null>("find_duplicates", { path: herePath(), mode: searching.mode });
     if (run !== duplicatesRun || current !== folder || duplicates !== searching) return;
     if (groups === null) duplicates = null; // cancelado
     else {
@@ -333,20 +410,22 @@ function renderFiles() {
     files.filter((f) => matches(f, filters)),
     sort,
   );
-  const shown = new Set(visible.map((f) => f.path));
+  visibleFolders = filtersFiles(filters) ? [] : subfolders.filter((f) => matchesFolder(f.name, filters));
+  const shown = new Set(rowPaths());
   selected = new Set([...selected].filter((p) => shown.has(p)));
   renderHeader(visible.length);
   renderToolbar();
-  if (files.length === 0) {
+  if (files.length === 0 && subfolders.length === 0) {
     renderMessage(t("list.empty"));
     return;
   }
-  if (visible.length === 0) {
+  if (visible.length === 0 && visibleFolders.length === 0) {
     renderMessage(t("list.noMatch"));
     return;
   }
   const body = el("tbody");
   for (const file of visible) body.append(fileRow(file));
+  for (const folder of visibleFolders) body.append(folderRow(folder));
   const table = el(
     "table",
     { class: "files" },
@@ -364,6 +443,7 @@ function renderFiles() {
 function renderDuplicates() {
   const groups = duplicateGroups();
   visible = groups.flat();
+  visibleFolders = []; // pastas não entram no modo Duplicados
   const shown = new Set(visible.map((f) => f.path));
   selected = new Set([...selected].filter((p) => shown.has(p)));
   renderHeader(visible.length);
@@ -416,6 +496,30 @@ function dateCell(file: FileEntry) {
   return cell;
 }
 
+/** Linha de uma subpasta: seleciona, arrasta, recebe arquivos soltos; duplo clique entra nela. */
+function folderRow(folder: FolderEntry): HTMLTableRowElement {
+  const row = el(
+    "tr",
+    { class: "folder-row", title: t("folder.hint", { path: folder.path }), "data-folder": folder.path, "data-label": folder.relative_path },
+    el("td", { class: "name", colspan: "4" }, el("span", { class: "folder-icon" }, "📁"), folder.relative_path),
+  );
+  row.classList.toggle("selected", selected.has(folder.path));
+  row.addEventListener("click", (event) => clickRow(folder.path, event));
+  row.addEventListener("dblclick", () => enterFolder(folder.path));
+  row.addEventListener("mousedown", (event) => pressRow(folder.path, event));
+  return row;
+}
+
+const enterFolder = (path: string) => goTo(path.slice(current!.path.length + 1));
+
+/** Botão pressionado numa linha: possível início de arrasto para fora. */
+function pressRow(path: string, event: MouseEvent) {
+  if (event.shiftKey) event.preventDefault(); // Shift+clique não estende seleção de texto pela página
+  if (event.button === 0 && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
+    pressed = { path, x: event.clientX, y: event.clientY };
+  }
+}
+
 /** Linha de um arquivo (com coluna Tamanho no modo Duplicados). */
 function fileRow(file: FileEntry, withSize = false): HTMLTableRowElement {
   const slash = file.relative_path.lastIndexOf("/");
@@ -434,18 +538,14 @@ function fileRow(file: FileEntry, withSize = false): HTMLTableRowElement {
   const chipOf = (event: Event) => (event.target as HTMLElement).closest<HTMLElement>(".row-chip");
   row.addEventListener("click", (event) => {
     const chip = chipOf(event);
-    if (!chip || duplicates) return clickRow(file, event); // filtros suspensos no modo Duplicados
+    if (!chip || duplicates) return clickRow(file.path, event); // filtros suspensos no modo Duplicados
     const key = chip.dataset.term!;
     if (!filters.terms.delete(key)) filters.terms.add(key);
     update();
   });
   row.addEventListener("dblclick", (event) => chipOf(event) || openFiles([file.path]));
   row.addEventListener("mousedown", (event) => {
-    if (chipOf(event)) return;
-    if (event.shiftKey) event.preventDefault(); // Shift+clique não estende seleção de texto pela página
-    if (event.button === 0 && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
-      pressed = { file, x: event.clientX, y: event.clientY };
-    }
+    if (!chipOf(event)) pressRow(file.path, event);
   });
   return row;
 }
@@ -455,9 +555,10 @@ async function reload() {
   const folder = current;
   if (!folder) return;
   try {
-    const result = await invoke<FileEntry[]>("list_folder", { path: folder.path });
+    const result = await invoke<{ files: FileEntry[]; folders: FolderEntry[] }>("list_folder", { path: folder.path });
     if (current !== folder) return;
-    files = result;
+    listing = result;
+    showWithin();
     normalizeDateFilter();
     update();
     if (duplicates?.groups) findDuplicates(); // novos arquivos podem ser cópias (conteúdo usa cache)
@@ -486,7 +587,7 @@ async function renameSelected() {
   if (selected.size !== 1) return;
   const path = [...selected][0];
   const name = path.slice(path.lastIndexOf("/") + 1);
-  const dot = name.lastIndexOf(".");
+  const dot = isFolder(path) ? -1 : name.lastIndexOf("."); // pasta: sem extensão
   const newName = await promptText(t("rename.title"), name, dot > 0 ? dot : name.length);
   if (newName === null || newName === name) return;
   try {
@@ -525,15 +626,89 @@ async function setClipboard(paths: string[], mode: "copy" | "cut") {
   renderFiles();
 }
 
+/** Copia/recorta os arquivos selecionados (pastas inteiras ficam de fora). */
 function toClipboard(mode: "copy" | "cut") {
-  if (selected.size) setClipboard([...selected], mode);
+  const paths = [...selected].filter((p) => !isFolder(p));
+  if (paths.length) setClipboard(paths, mode);
+}
+
+/** Subpasta sugerida para a nova pasta: a pasta selecionada, ou a subpasta comum dos arquivos selecionados. */
+function suggestedParent(): string {
+  const only = selected.size === 1 ? subfolders.find((f) => selected.has(f.path)) : undefined;
+  if (only) return `${only.relative_path}/`;
+  const dirs = new Set(
+    files.filter((f) => selected.has(f.path)).map((f) => f.relative_path.slice(0, Math.max(0, f.relative_path.lastIndexOf("/")))),
+  );
+  const [dir] = dirs;
+  return dirs.size === 1 && dir ? `${dir}/` : "";
+}
+
+/** Cria uma pasta (aceita subpastas: 2025/janeiro) e, se pedido, move para ela os arquivos selecionados. */
+function newFolder() {
+  const folder = current;
+  if (!folder || document.querySelector("dialog[open]")) return;
+  const chosen = files.filter((f) => selected.has(f.path)).map((f) => f.path);
+  const input = el("input", { value: suggestedParent(), "aria-label": t("newFolder.title") });
+  const move = el("input", { type: "checkbox" });
+  move.checked = true;
+  const error = el("p", { class: "editor-error" });
+  const form = el("form", { method: "dialog" });
+  const dialog = el("dialog", { class: "editor prompt" }, el("h2", {}, t("newFolder.title")), form);
+  form.append(
+    el("p", { class: "hint" }, t("newFolder.hint", { folder: hereLabel() })),
+    input,
+    chosen.length
+      ? el("label", { class: "checkbox" }, move, chosen.length === 1 ? t("newFolder.moveOne") : t("newFolder.moveMany", { n: chosen.length }))
+      : "",
+    error,
+    el("div", { class: "editor-actions" }, button(t("common.cancel"), () => dialog.close()), el("button", { type: "submit", class: "primary" }, t("newFolder.create"))),
+  );
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    error.textContent = "";
+    try {
+      const created = await invoke<string>("create_folder", { root: herePath(), relative: input.value });
+      dialog.close();
+      if (chosen.length && move.checked) await transfer(chosen, "cut", created);
+      selected = new Set([created]);
+      anchor = created;
+      await reload();
+    } catch (e) {
+      error.textContent = String(e);
+    }
+  });
+  dialog.addEventListener("close", () => dialog.remove());
+  document.body.append(dialog);
+  dialog.showModal();
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+}
+
+/** Abre os selecionados no programa padrão; uma pasta sozinha na seleção: entra nela. */
+function openSelected() {
+  const paths = rowPaths().filter((p) => selected.has(p));
+  if (paths.length === 1 && isFolder(paths[0])) return enterFolder(paths[0]);
+  const filePaths = paths.filter((p) => !isFolder(p));
+  if (filePaths.length) openFiles(filePaths);
+}
+
+/** Destino de colar: a pasta selecionada (se for só uma) ou a pasta em que se está. */
+function pasteTarget(): { path: string; label: string } {
+  const only = selected.size === 1 ? subfolders.find((f) => selected.has(f.path)) : undefined;
+  return only ? { path: only.path, label: only.relative_path } : { path: herePath(), label: hereLabel() };
 }
 
 async function trashSelected() {
   const paths = [...selected];
   if (paths.length === 0) return;
-  const what = paths.length === 1 ? `“${paths[0].slice(paths[0].lastIndexOf("/") + 1)}”` : t("files.many", { n: paths.length });
-  if (!(await ask(t("trash.confirm", { what }), { title: t("trash.title"), kind: "warning" }))) return;
+  const folders = paths.filter(isFolder);
+  const what =
+    paths.length === 1
+      ? `“${paths[0].slice(paths[0].lastIndexOf("/") + 1)}”`
+      : t(folders.length ? "items.many" : "files.many", { n: paths.length });
+  const inside = files.filter((f) => folders.some((dir) => f.path.startsWith(`${dir}/`))).length;
+  const question = folders.length ? t("trash.confirmFolders", { what, n: inside }) : t("trash.confirm", { what });
+  if (!(await ask(question, { title: t("trash.title"), kind: "warning" }))) return;
   try {
     await invoke("trash_files", { paths });
     if (clipboard.paths.some((p) => paths.includes(p))) {
@@ -583,27 +758,39 @@ async function paste(dest: string) {
   await transfer(paths, mode, dest);
 }
 
+/** Destino de arquivos soltos: pasta da lista ou pasta cadastrada na lateral. */
+type DropTarget = { path: string; label: string };
+
+/** Pasta (linha da lista ou da lateral) sob o ponto do arrasto (posição física da janela), se houver. */
+function folderAt(position: { x: number; y: number }): DropTarget | undefined {
+  const node = document.elementFromPoint(position.x / devicePixelRatio, position.y / devicePixelRatio);
+  const target = node?.closest<HTMLElement>("[data-folder]")?.dataset;
+  return target?.folder && target.label ? { path: target.folder, label: target.label } : undefined;
+}
+
 /** Itens soltos na janela (arrastados de um gerenciador de arquivos): copiar ou mover para a pasta aberta. */
-async function dropFiles(dropped: string[]) {
+async function dropFiles(dropped: string[], into?: DropTarget) {
   const folder = current;
   if (!folder || dropped.length === 0 || document.querySelector("dialog[open]")) return;
+  const dest = into ?? { path: herePath(), label: hereLabel() };
   const { paths, skipped } = await invoke<{ paths: string[]; skipped: string[] }>("split_files", { paths: dropped });
   await warnSkipped(skipped);
   if (paths.length === 0) return;
   const what = paths.length === 1 ? `“${paths[0].slice(paths[0].lastIndexOf("/") + 1)}”` : t("files.many", { n: paths.length });
-  const choice = await choose(t("drop.title"), t("drop.where", { what, folder: folder.name }), [t("drop.copy"), t("drop.move")]);
-  if (choice) await transfer(paths, choice === t("drop.copy") ? "copy" : "cut", folder.path);
+  const choice = await choose(t("drop.title"), t("drop.where", { what, folder: dest.label }), [t("drop.copy"), t("drop.move")]);
+  if (choice) await transfer(paths, choice === t("drop.copy") ? "copy" : "cut", dest.path);
 }
 
 /** Arrasta a seleção (ou só a linha, se não estiver selecionada) para outro programa. */
-async function dragOut(file: FileEntry) {
-  if (!selected.has(file.path)) {
-    selected = new Set([file.path]);
-    anchor = file.path;
+async function dragOut(path: string) {
+  if (!selected.has(path)) {
+    selected = new Set([path]);
+    anchor = path;
     renderFiles();
   }
-  const paths = visible.filter((f) => selected.has(f.path)).map((f) => f.path);
+  const paths = rowPaths().filter((p) => selected.has(p));
   draggingOut = true;
+  dragged = new Set(paths);
   try {
     await invoke("drag_files", { paths });
   } catch (error) {
@@ -617,20 +804,30 @@ function onMouseMove(event: MouseEvent) {
   if (!(event.buttons & 1)) {
     pressed = null;
   } else if (Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > 6) {
-    const { file } = pressed;
+    const { path } = pressed;
     pressed = null;
-    dragOut(file);
+    dragOut(path);
   }
 }
 
-function setDropHighlight(on: boolean) {
+/** Arquivos da própria lista soltos sobre uma pasta (da lista ou da lateral): movidos para ela, sem perguntar. */
+async function moveInto(dropped: string[], into: DropTarget) {
+  const paths = dropped.filter((p) => !isFolder(p) && p.slice(0, p.lastIndexOf("/")) !== into.path);
+  if (paths.length) await transfer(paths, "cut", into.path);
+}
+
+/** Arrasto vindo de fora destaca a lista inteira; `own` (arrasto da própria lista) só a pasta sob o cursor. */
+function setDropHighlight(on: boolean, into?: DropTarget, own = false) {
   const content = $("#content");
-  content.classList.toggle("drop-target", on && !!current && !content.querySelector(".message.error"));
-  if (current) content.dataset.drop = t("drop.target", { folder: current.name });
+  content.classList.toggle("drop-target", on && !own && !!current && !content.querySelector(".message.error"));
+  if (current) content.dataset.drop = t("drop.target", { folder: into?.label ?? hereLabel() });
+  for (const row of document.querySelectorAll<HTMLElement>("[data-folder]")) {
+    row.classList.toggle("drop-into", on && row.dataset.folder === into?.path);
+  }
 }
 
 async function pasteInto() {
-  const dest = await open({ directory: true, defaultPath: current?.path, title: t("paste.into") });
+  const dest = await open({ directory: true, defaultPath: current ? herePath() : undefined, title: t("paste.into") });
   if (typeof dest === "string") await paste(dest);
 }
 
@@ -656,14 +853,16 @@ function onKeyDown(event: KeyboardEvent) {
   if (!current || document.querySelector("dialog[open]") || target.closest("input, select, textarea")) return;
   const ctrl = event.ctrlKey || event.metaKey;
   const key = event.key.toLowerCase();
-  if (event.key === "F2") renameSelected();
-  else if (event.key === "Enter" && selected.size && !target.closest("button")) openFiles(visible.filter((f) => selected.has(f.path)).map((f) => f.path));
+  if (ctrl && event.shiftKey && key === "n") newFolder();
+  else if (event.key === "F2") renameSelected();
+  else if (event.key === "Backspace" || (event.altKey && event.key === "ArrowUp")) goUp();
+  else if (event.key === "Enter" && selected.size && !target.closest("button")) openSelected();
   else if (event.key === "Delete") trashSelected();
   else if (ctrl && key === "c") toClipboard("copy");
   else if (ctrl && key === "x") toClipboard("cut");
-  else if (ctrl && key === "v") paste(current.path);
+  else if (ctrl && key === "v") paste(pasteTarget().path);
   else if (ctrl && key === "a") {
-    selected = new Set(visible.map((f) => f.path));
+    selected = new Set(rowPaths());
     renderFiles();
   } else if (event.key === "Escape" && selected.size) {
     selected.clear();
@@ -775,7 +974,10 @@ function update() {
 async function selectFolder(folder: Folder) {
   if (duplicates) exitDuplicates();
   current = folder;
+  within = "";
+  listing = { files: [], folders: [] };
   files = [];
+  subfolders = [];
   selected.clear();
   anchor = null;
   saveLastFolder(folder.name);
@@ -893,13 +1095,24 @@ async function init() {
   window.addEventListener("focus", refreshClipboard); // o usuário pode ter copiado no gerenciador de arquivos
   await getCurrentWebview().onDragDropEvent((event) => {
     const { type } = event.payload;
-    if (draggingOut) return setDropHighlight(false); // arrasto saindo do próprio cajabox
-    setDropHighlight(type === "enter" || type === "over");
-    if (type === "drop") dropFiles(event.payload.paths);
+    const into = type === "over" || type === "drop" ? folderAt(event.payload.position) : undefined;
+    // arrasto da própria lista: só vale soltar sobre uma pasta (o fim do arrasto pode chegar antes do "drop")
+    if (type === "drop" && event.payload.paths.length && event.payload.paths.every((p) => dragged.has(p))) {
+      setDropHighlight(false);
+      if (into) moveInto(event.payload.paths, into);
+      return;
+    }
+    if (draggingOut) return setDropHighlight(type === "over" && !!into, into, true);
+    setDropHighlight(type === "enter" || type === "over", into);
+    if (type === "drop") dropFiles(event.payload.paths, into);
   });
   document.addEventListener("mousemove", onMouseMove);
   document.addEventListener("mouseup", () => (pressed = null));
-  await listen("drag-out-ended", () => (draggingOut = false));
+  await listen("drag-out-ended", () => {
+    draggingOut = false;
+    const ended = dragged;
+    setTimeout(() => dragged === ended && (dragged = new Set()), 1000);
+  });
   await listen("config-changed", reloadState);
   await listen<[number, number]>("duplicates-progress", (event) => {
     if (duplicates?.groups !== null || !duplicates) return;
